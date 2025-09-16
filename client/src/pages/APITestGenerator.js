@@ -1,8 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes, css } from 'styled-components';
 import { FiCloud, FiSettings, FiUpload, FiPlay, FiDownload, FiCheck, FiX, FiRefreshCw } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import api from '../config/axios';
+
+// Animation for spinning icon
+const spin = keyframes`
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+`;
+
+const SpinningIcon = styled(FiRefreshCw)`
+  ${css`animation: ${spin} 1s linear infinite;`}
+`;
+
+const LoadingMessage = styled.div`
+  background: #e3f2fd;
+  border: 1px solid #bbdefb;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  color: #1976d2;
+  font-size: 14px;
+  
+  svg {
+    margin-right: 12px;
+  }
+`;
 
 const APIContainer = styled.div`
   padding: 30px;
@@ -466,7 +496,8 @@ const APITestGenerator = () => {
         default:
           throw new Error('Invalid loading method');
       }
-
+    
+      console.log('Loaded endpoints:', response.data.endpoints);
       setEndpoints(response.data.endpoints || []);
       toast.success(`Loaded ${response.data.endpoints?.length || 0} endpoints`);
     } catch (err) {
@@ -948,6 +979,20 @@ const APITestGenerator = () => {
             </>
           )}
 
+          {loading && (
+            <LoadingMessage>
+              <SpinningIcon />
+              <div>
+                <div style={{ fontWeight: '500', marginBottom: '4px' }}>
+                  Generating tests, please wait...
+                </div>
+                <div style={{ fontSize: '12px', opacity: 0.8 }}>
+                  This may take up to 5 minutes for complex API specifications with LLM enhancement.
+                </div>
+              </div>
+            </LoadingMessage>
+          )}
+
           <Button
             className="primary"
             onClick={generateTests}
@@ -956,7 +1001,7 @@ const APITestGenerator = () => {
           >
             {loading ? (
               <>
-                <FiRefreshCw style={{ animation: 'spin 1s linear infinite' }} />
+                <SpinningIcon />
                 Generating Tests...
               </>
             ) : (

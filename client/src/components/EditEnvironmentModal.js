@@ -232,7 +232,15 @@ const Button = styled.button`
   }
 `;
 
+const ErrorMessage = styled.div`
+  color: #e74c3c;
+  font-size: 12px;
+  margin-top: 4px;
+  font-weight: 500;
+`;
+
 const EditEnvironmentModal = ({ isOpen, onClose, environment, onUpdate }) => {
+  const [validationErrors, setValidationErrors] = useState({});
   const [formData, setFormData] = useState({
     name: '',
     key: '',
@@ -257,6 +265,21 @@ const EditEnvironmentModal = ({ isOpen, onClose, environment, onUpdate }) => {
       apiKey: '',
       model: 'gpt-3.5-turbo',
       baseUrl: ''
+    },
+    authorization: {
+      enabled: false,
+      type: 'bearer',
+      token: '',
+      username: '',
+      password: '',
+      apiKey: '',
+      clientId: '',
+      clientSecret: '',
+      scope: '',
+      authUrl: '',
+      tokenUrl: '',
+      redirectUri: '',
+      customHeaders: {}
     }
   });
 
@@ -293,12 +316,64 @@ const EditEnvironmentModal = ({ isOpen, onClose, environment, onUpdate }) => {
           apiKey: environment.llmConfiguration?.apiKey || '',
           model: environment.llmConfiguration?.model || 'gpt-3.5-turbo',
           baseUrl: environment.llmConfiguration?.baseUrl || ''
+        },
+        authorization: {
+          enabled: environment.authorization?.enabled || false,
+          type: environment.authorization?.type || 'bearer',
+          token: environment.authorization?.token || '',
+          username: environment.authorization?.username || '',
+          password: environment.authorization?.password || '',
+          apiKey: environment.authorization?.apiKey || '',
+          clientId: environment.authorization?.clientId || '',
+          clientSecret: environment.authorization?.clientSecret || '',
+          scope: environment.authorization?.scope || '',
+          authUrl: environment.authorization?.authUrl || '',
+          tokenUrl: environment.authorization?.tokenUrl || '',
+          redirectUri: environment.authorization?.redirectUri || '',
+          customHeaders: environment.authorization?.customHeaders || {}
         }
       });
     }
   }, [isOpen, environment]);
 
+  const validateField = (name, value) => {
+    const errors = {};
+    
+    // URL validation for OAuth fields
+    if (name === 'authorization.authUrl' || name === 'authorization.tokenUrl' || name === 'authorization.redirectUri') {
+      if (value && !/^https?:\/\/.+/.test(value)) {
+        errors[name] = 'Please enter a valid URL (must start with http:// or https://)';
+      }
+    }
+    
+    // Required field validation for OAuth2
+    if (formData.authorization?.enabled && formData.authorization?.type === 'oauth2') {
+      if (name === 'authorization.clientId' && !value.trim()) {
+        errors[name] = 'Client ID is required for OAuth2';
+      }
+      if (name === 'authorization.clientSecret' && !value.trim()) {
+        errors[name] = 'Client Secret is required for OAuth2';
+      }
+      if (name === 'authorization.authUrl' && !value.trim()) {
+        errors[name] = 'Authorization URL is required for OAuth2';
+      }
+      if (name === 'authorization.tokenUrl' && !value.trim()) {
+        errors[name] = 'Token URL is required for OAuth2';
+      }
+    }
+    
+    return errors;
+  };
+
   const handleInputChange = (field, value) => {
+    // Validate the field
+    const fieldErrors = validateField(field, value);
+    setValidationErrors(prev => ({
+      ...prev,
+      ...fieldErrors,
+      [field]: fieldErrors[field] || undefined
+    }));
+    
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
       setFormData(prev => ({
@@ -683,6 +758,175 @@ const EditEnvironmentModal = ({ isOpen, onClose, environment, onUpdate }) => {
                     {testingLLM ? 'Testing...' : 'Test LLM Connection'}
                   </Button>
                 </FormGroup>
+              </>
+            )}
+
+            <SectionTitle>
+              <FiSettings />
+              Authorization Configuration
+            </SectionTitle>
+            
+            <ToggleContainer>
+              <ToggleLabel>Enable Authorization</ToggleLabel>
+              <ToggleSwitch
+                isEnabled={formData.authorization.enabled}
+                onClick={() => handleInputChange('authorization.enabled', !formData.authorization.enabled)}
+              />
+            </ToggleContainer>
+
+            {formData.authorization.enabled && (
+              <>
+                <FormGroup>
+                  <Label>Authentication Type</Label>
+                  <Select
+                    value={formData.authorization.type}
+                    onChange={(e) => handleInputChange('authorization.type', e.target.value)}
+                  >
+                    <option value="bearer">Bearer Token</option>
+                    <option value="basic">Basic Auth</option>
+                    <option value="apiKey">API Key</option>
+                    <option value="oauth1">OAuth 1.0</option>
+                    <option value="oauth2">OAuth 2.0</option>
+                  </Select>
+                </FormGroup>
+
+                <VariablesGrid>
+                  {(formData.authorization.type === 'bearer' || formData.authorization.type === 'oauth1' || formData.authorization.type === 'oauth2') && (
+                    <FormGroup>
+                      <Label>Token</Label>
+                      <Input
+                        type="password"
+                        value={formData.authorization.token}
+                        onChange={(e) => handleInputChange('authorization.token', e.target.value)}
+                        placeholder="Enter token or use ${API_TOKEN}"
+                      />
+                    </FormGroup>
+                  )}
+
+                  {(formData.authorization.type === 'basic' || formData.authorization.type === 'oauth1') && (
+                    <>
+                      <FormGroup>
+                        <Label>Username</Label>
+                        <Input
+                          type="text"
+                          value={formData.authorization.username}
+                          onChange={(e) => handleInputChange('authorization.username', e.target.value)}
+                          placeholder="Enter username or use ${API_USERNAME}"
+                        />
+                      </FormGroup>
+                      <FormGroup>
+                        <Label>Password</Label>
+                        <Input
+                          type="password"
+                          value={formData.authorization.password}
+                          onChange={(e) => handleInputChange('authorization.password', e.target.value)}
+                          placeholder="Enter password or use ${API_PASSWORD}"
+                        />
+                      </FormGroup>
+                    </>
+                  )}
+
+                  {formData.authorization.type === 'apiKey' && (
+                    <FormGroup>
+                      <Label>API Key</Label>
+                      <Input
+                        type="password"
+                        value={formData.authorization.apiKey}
+                        onChange={(e) => handleInputChange('authorization.apiKey', e.target.value)}
+                        placeholder="Enter API key or use ${API_KEY}"
+                      />
+                    </FormGroup>
+                  )}
+
+                  {formData.authorization.type === 'oauth2' && (
+                    <>
+                      <FormGroup>
+                        <Label>Client ID</Label>
+                        <Input
+                          type="text"
+                          value={formData.authorization.clientId}
+                          onChange={(e) => handleInputChange('authorization.clientId', e.target.value)}
+                          placeholder="OAuth2 Client ID"
+                          style={{
+                            borderColor: validationErrors['authorization.clientId'] ? '#e74c3c' : '#d1d5db'
+                          }}
+                        />
+                        {validationErrors['authorization.clientId'] && (
+                          <ErrorMessage>{validationErrors['authorization.clientId']}</ErrorMessage>
+                        )}
+                      </FormGroup>
+                      <FormGroup>
+                        <Label>Client Secret</Label>
+                        <Input
+                          type="password"
+                          value={formData.authorization.clientSecret}
+                          onChange={(e) => handleInputChange('authorization.clientSecret', e.target.value)}
+                          placeholder="OAuth2 Client Secret"
+                          style={{
+                            borderColor: validationErrors['authorization.clientSecret'] ? '#e74c3c' : '#d1d5db'
+                          }}
+                        />
+                        {validationErrors['authorization.clientSecret'] && (
+                          <ErrorMessage>{validationErrors['authorization.clientSecret']}</ErrorMessage>
+                        )}
+                      </FormGroup>
+                      <FormGroup>
+                        <Label>Scope</Label>
+                        <Input
+                          type="text"
+                          value={formData.authorization.scope}
+                          onChange={(e) => handleInputChange('authorization.scope', e.target.value)}
+                          placeholder="read write admin"
+                        />
+                      </FormGroup>
+                      <FormGroup>
+                        <Label>Authorization URL</Label>
+                        <Input
+                          type="url"
+                          value={formData.authorization.authUrl}
+                          onChange={(e) => handleInputChange('authorization.authUrl', e.target.value)}
+                          placeholder="https://api.example.com/oauth/authorize"
+                          style={{
+                            borderColor: validationErrors['authorization.authUrl'] ? '#e74c3c' : '#d1d5db'
+                          }}
+                        />
+                        {validationErrors['authorization.authUrl'] && (
+                          <ErrorMessage>{validationErrors['authorization.authUrl']}</ErrorMessage>
+                        )}
+                      </FormGroup>
+                      <FormGroup>
+                        <Label>Token URL</Label>
+                        <Input
+                          type="url"
+                          value={formData.authorization.tokenUrl}
+                          onChange={(e) => handleInputChange('authorization.tokenUrl', e.target.value)}
+                          placeholder="https://api.example.com/oauth/token"
+                          style={{
+                            borderColor: validationErrors['authorization.tokenUrl'] ? '#e74c3c' : '#d1d5db'
+                          }}
+                        />
+                        {validationErrors['authorization.tokenUrl'] && (
+                          <ErrorMessage>{validationErrors['authorization.tokenUrl']}</ErrorMessage>
+                        )}
+                      </FormGroup>
+                      <FormGroup>
+                        <Label>Redirect URI</Label>
+                        <Input
+                          type="url"
+                          value={formData.authorization.redirectUri}
+                          onChange={(e) => handleInputChange('authorization.redirectUri', e.target.value)}
+                          placeholder="https://localhost:3000/callback"
+                          style={{
+                            borderColor: validationErrors['authorization.redirectUri'] ? '#e74c3c' : '#d1d5db'
+                          }}
+                        />
+                        {validationErrors['authorization.redirectUri'] && (
+                          <ErrorMessage>{validationErrors['authorization.redirectUri']}</ErrorMessage>
+                        )}
+                      </FormGroup>
+                    </>
+                  )}
+                </VariablesGrid>
               </>
             )}
           </ModalBody>

@@ -6,29 +6,17 @@
     "testType": "UI",
     "testCases": [
       {
-        "id": "ui-generated-from-hr-test--copy---admin-case",
-        "name": "generated from hr test copy  admin case",
+        "id": "ui-generated-from-hr-test--copy--login-only",
+        "name": "generated from hr test copy login only",
         "tags": [
           "ui",
-          "generated"
+          "login"
         ],
         "type": "UI",
-        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/1d6618d0-7918-43d0-bebd-f4aeb3d819e7/generated-from-hr-test--copy---admin-case.spec.ts",
-        "created": "2025-09-13T22:33:56.696Z",
-        "modified": "2025-09-13T22:33:56.696Z"
-      }
-    ],
-    "createdAt": "2025-09-13T17:13:10.768Z",
-    "status": "ready",
-    "totalTests": 1,
-    "lastRun": null,
-    "results": {
-      "passed": 0,
-      "failed": 0,
-      "skipped": 0,
-      "total": 2
-    },
-    "selectedTestCases": [
+        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/392b0015-8b9e-4ead-983b-7a402ff7bf87/generated-from-hr-test--copy--login-only.spec.ts",
+        "created": "2025-09-13T15:07:06.484Z",
+        "modified": "2025-09-14T13:13:00.835Z"
+      },
       {
         "id": "ui-generated-from-hr-test--copy---admin-case",
         "name": "generated from hr test copy  admin case",
@@ -39,9 +27,45 @@
         "type": "UI",
         "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/1d6618d0-7918-43d0-bebd-f4aeb3d819e7/generated-from-hr-test--copy---admin-case.spec.ts",
         "created": "2025-09-13T22:33:56.696Z",
-        "modified": "2025-09-13T22:33:56.696Z"
+        "modified": "2025-09-17T16:47:50.656Z"
       }
     ],
-    "updatedAt": "2025-09-14T13:56:13.772Z"
+    "createdAt": "2025-09-13T17:13:10.768Z",
+    "status": "ready",
+    "totalTests": 2,
+    "lastRun": null,
+    "results": {
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "total": 2
+    },
+    "selectedTestCases": [
+      {
+        "id": "ui-generated-from-hr-test--copy--login-only",
+        "name": "generated from hr test copy login only",
+        "tags": [
+          "ui",
+          "login"
+        ],
+        "type": "UI",
+        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/392b0015-8b9e-4ead-983b-7a402ff7bf87/generated-from-hr-test--copy--login-only.spec.ts",
+        "created": "2025-09-13T15:07:06.484Z",
+        "modified": "2025-09-14T13:13:00.835Z"
+      },
+      {
+        "id": "ui-generated-from-hr-test--copy---admin-case",
+        "name": "generated from hr test copy  admin case",
+        "tags": [
+          "ui",
+          "generated"
+        ],
+        "type": "UI",
+        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/1d6618d0-7918-43d0-bebd-f4aeb3d819e7/generated-from-hr-test--copy---admin-case.spec.ts",
+        "created": "2025-09-13T22:33:56.696Z",
+        "modified": "2025-09-17T16:47:50.656Z"
+      }
+    ],
+    "updatedAt": "2025-09-17T19:34:02.566Z"
   }
 ]

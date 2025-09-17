@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import styled, { keyframes, css } from 'styled-components';
-import { FiCloud, FiSettings, FiUpload, FiPlay, FiDownload, FiCheck, FiX, FiRefreshCw } from 'react-icons/fi';
+import { FiCloud, FiSettings, FiUpload, FiPlay, FiDownload, FiCheck, FiX, FiRefreshCw, FiChevronDown, FiChevronUp, FiSearch } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import api from '../config/axios';
 
@@ -35,8 +35,8 @@ const LoadingMessage = styled.div`
 `;
 
 const APIContainer = styled.div`
-  padding: 30px;
-  background-color: #f8f9fa;
+  padding: 40px 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   min-height: 100vh;
 `;
 
@@ -65,31 +65,134 @@ const Subtitle = styled.p`
 `;
 
 const MainContent = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
   margin-bottom: 30px;
+  max-width: 1200px;
+  margin: 0 auto 30px auto;
 `;
 
 const Section = styled.div`
   background: white;
-  border-radius: 8px;
-  padding: 24px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  padding: 28px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+  border: 1px solid #e9ecef;
+  position: relative;
+  
+  &:not(:last-child) {
+    margin-bottom: 8px;
+  }
 `;
 
 const SectionTitle = styled.h2`
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 700;
   color: #2c3e50;
-  margin: 0 0 20px 0;
+  margin: 0 0 24px 0;
+  display: flex;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f8f9fa;
+  position: relative;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, #3498db, #2980b9);
+  }
+`;
+
+const SectionIcon = styled.span`
+  margin-right: 12px;
+  color: #3498db;
+  font-size: 20px;
   display: flex;
   align-items: center;
 `;
 
-const SectionIcon = styled.span`
-  margin-right: 8px;
+const StepNumber = styled.div`
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  margin-right: 16px;
+  box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+`;
+
+const StepIndicator = styled.div`
+  display: flex;
+  align-items: center;
+  margin-bottom: 32px;
+  padding: 16px 24px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-left: 4px solid #3498db;
+`;
+
+const StepContent = styled.div`
+  flex: 1;
+`;
+
+const StepTitle = styled.h3`
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #2c3e50;
+`;
+
+const StepDescription = styled.p`
+  margin: 0;
+  font-size: 14px;
+  color: #7f8c8d;
+  line-height: 1.4;
+`;
+
+const CollapseToggle = styled.button`
+  background: none;
+  border: none;
   color: #3498db;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  margin-left: 8px;
+
+  &:hover {
+    background-color: #f8f9fa;
+    color: #2980b9;
+  }
+
+  svg {
+    font-size: 16px;
+  }
+`;
+
+const CollapsibleSection = styled.div`
+  overflow: hidden;
+  transition: all 0.3s ease;
+  max-height: ${props => props.isCollapsed ? '0' : '2000px'};
+  opacity: ${props => props.isCollapsed ? '0' : '1'};
+  margin-top: ${props => props.isCollapsed ? '0' : '16px'};
+`;
+
+const StepWrapper = styled.div`
+  margin-bottom: 24px;
 `;
 
 const SectionDescription = styled.div`
@@ -311,25 +414,56 @@ const FileInput = styled.input`
 `;
 
 const EndpointList = styled.div`
-  max-height: 400px;
+  max-height: 60vh;
   overflow-y: auto;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  margin-bottom: 20px;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  background: #fafbfc;
+  
+  /* Custom scrollbar */
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f1f3f4;
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #c1c8cd;
+    border-radius: 4px;
+    
+    &:hover {
+      background: #a8b2ba;
+    }
+  }
 `;
 
 const EndpointItem = styled.div`
   display: flex;
   align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e9ecef;
+  background: white;
+  transition: all 0.2s ease;
+  
+  &:first-child {
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+  }
   
   &:last-child {
     border-bottom: none;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
   }
   
   &:hover {
     background-color: #f8f9fa;
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 `;
 
@@ -416,6 +550,242 @@ const SelectionInfo = styled.div`
   margin-top: 12px;
 `;
 
+const SearchAndFilterContainer = styled.div`
+  margin-bottom: 20px;
+`;
+
+const SearchContainer = styled.div`
+  position: relative;
+  margin-bottom: 16px;
+`;
+
+const SearchInput = styled.input`
+  width: 100%;
+  padding: 12px 16px 12px 40px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  background-color: white;
+  transition: all 0.3s ease;
+
+  &:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+  }
+
+  &::placeholder {
+    color: #95a5a6;
+  }
+`;
+
+const SearchIcon = styled.div`
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #95a5a6;
+  font-size: 16px;
+  pointer-events: none;
+`;
+
+const MethodFilters = styled.div`
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const MethodFilterButton = styled.button`
+  padding: 8px 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  color: #7f8c8d;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 70px;
+  justify-content: center;
+  text-transform: uppercase;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+  &:hover {
+    border-color: #3498db;
+    color: #3498db;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  }
+
+  &.active {
+    color: white;
+    border: none;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  }
+
+  &.active.all {
+    background-color: #34495e;
+  }
+
+  &.active.get {
+    background-color: #27ae60;
+  }
+
+  &.active.post {
+    background-color: #3498db;
+  }
+
+  &.active.put {
+    background-color: #f39c12;
+  }
+
+  &.active.delete {
+    background-color: #e74c3c;
+  }
+
+  &.active.patch {
+    background-color: #9b59b6;
+  }
+`;
+
+const AuthStatusContainer = styled.div`
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  font-size: 12px;
+`;
+
+const AuthStatusItem = styled.div`
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+`;
+
+const AuthStatusLabel = styled.span`
+  font-weight: 500;
+  color: #495057;
+  margin-right: 8px;
+  min-width: 60px;
+`;
+
+const AuthStatusValue = styled.span`
+  color: #6c757d;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+`;
+
+const AuthStatusBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  
+  &.enabled {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+  }
+  
+  &.disabled {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+  }
+  
+  &.none {
+    background-color: #e2e3e5;
+    color: #383d41;
+    border: 1px solid #d6d8db;
+  }
+`;
+
+const AuthFieldsContainer = styled.div`
+  margin-top: 12px;
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+`;
+
+const AuthFieldsTitle = styled.div`
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+const AuthFieldRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid #e9ecef;
+  
+  &:last-child {
+    border-bottom: none;
+  }
+`;
+
+const AuthFieldLabel = styled.span`
+  font-size: 11px;
+  font-weight: 500;
+  color: #6c757d;
+  min-width: 80px;
+`;
+
+const AuthFieldValue = styled.span`
+  font-size: 11px;
+  color: #495057;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  background-color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid #dee2e6;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  
+  &.masked {
+    color: #6c757d;
+    font-family: inherit;
+  }
+`;
+
+const AuthTypeDisplay = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+`;
+
+const AuthTypeBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  background-color: #e3f2fd;
+  color: #1976d2;
+  border: 1px solid #bbdefb;
+`;
+
 const APITestGenerator = () => {
   const [loadingMethod, setLoadingMethod] = useState('api');
   const [apiUrl, setApiUrl] = useState('');
@@ -432,7 +802,71 @@ const APITestGenerator = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [useLLM, setUseLLM] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedMethod, setSelectedMethod] = useState('ALL');
   const [testVariations, setTestVariations] = useState(['happy-path']);
+  const [collapsedSteps, setCollapsedSteps] = useState(new Set());
+
+  // Helper function to get authorization status from environment
+  const getAuthorizationStatus = (environmentId) => {
+    const environment = environments.find(env => env._id === environmentId);
+    if (!environment || !environment.authorization) {
+      return { 
+        type: 'None', 
+        enabled: false, 
+        status: 'none',
+        fields: []
+      };
+    }
+
+    const auth = environment.authorization;
+    const isEnabled = auth.enabled === true;
+    const authType = (auth.type || 'Unknown').toLowerCase();
+    
+    // Collect available auth fields based on type
+    const fields = [];
+    
+    // Common fields for all auth types
+    if (auth.username) fields.push({ label: 'Username', value: auth.username, masked: false });
+    if (auth.password) fields.push({ label: 'Password', value: '••••••••', masked: true });
+    if (auth.apiKey) fields.push({ label: 'API Key', value: auth.apiKey, masked: false });
+    if (auth.token) fields.push({ label: 'Token', value: auth.token, masked: false });
+    
+    // OAuth specific fields
+    if (auth.clientId) fields.push({ label: 'Client ID', value: auth.clientId, masked: false });
+    if (auth.clientSecret) fields.push({ label: 'Client Secret', value: '••••••••', masked: true });
+    if (auth.scope) fields.push({ label: 'Scope', value: auth.scope, masked: false });
+    if (auth.authUrl) fields.push({ label: 'Auth URL', value: auth.authUrl, masked: false });
+    if (auth.tokenUrl) fields.push({ label: 'Token URL', value: auth.tokenUrl, masked: false });
+    if (auth.redirectUri) fields.push({ label: 'Redirect URI', value: auth.redirectUri, masked: false });
+    
+    // OAuth 1.0 specific fields
+    if (auth.consumerKey) fields.push({ label: 'Consumer Key', value: auth.consumerKey, masked: false });
+    if (auth.consumerSecret) fields.push({ label: 'Consumer Secret', value: '••••••••', masked: true });
+    if (auth.accessToken) fields.push({ label: 'Access Token', value: auth.accessToken, masked: false });
+    if (auth.tokenSecret) fields.push({ label: 'Token Secret', value: '••••••••', masked: true });
+    
+    // Custom headers
+    if (auth.customHeaders && Object.keys(auth.customHeaders).length > 0) {
+      Object.entries(auth.customHeaders).forEach(([key, value]) => {
+        const isSensitive = key.toLowerCase().includes('authorization') || 
+                           key.toLowerCase().includes('token') || 
+                           key.toLowerCase().includes('key');
+        fields.push({ 
+          label: `Header: ${key}`, 
+          value: value, 
+          masked: false 
+        });
+      });
+    }
+    
+    return {
+      type: auth.type || 'Unknown',
+      enabled: isEnabled,
+      status: isEnabled ? 'enabled' : 'disabled',
+      fields: fields
+    };
+  };
   const [availableVariations] = useState([
     { value: 'happy-path', label: 'Happy Path', description: 'Test successful scenarios with valid data and proper assertions' },
     { value: 'error-cases', label: 'Error Cases', description: 'Test all error scenarios (400, 401, 403, 404, 422, 500) with proper error handling' },
@@ -442,6 +876,21 @@ const APITestGenerator = () => {
     { value: 'boundary-conditions', label: 'Boundary Conditions', description: 'Test data limits, string lengths, numeric boundaries, and size constraints' },
     { value: 'data-validation', label: 'Data Validation', description: 'Test field validation, data types, formats, and business rule validation' }
   ]);
+
+  // Filter endpoints based on search term and selected method
+  const filteredEndpoints = useMemo(() => {
+    return endpoints.filter(endpoint => {
+      // Filter by search term (check path and summary)
+      const matchesSearch = searchTerm === '' || 
+        endpoint.path.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (endpoint.summary && endpoint.summary.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      // Filter by HTTP method
+      const matchesMethod = selectedMethod === 'ALL' || endpoint.method === selectedMethod;
+      
+      return matchesSearch && matchesMethod;
+    });
+  }, [endpoints, searchTerm, selectedMethod]);
 
   useEffect(() => {
     fetchEnvironments();
@@ -454,6 +903,16 @@ const APITestGenerator = () => {
     } catch (error) {
       console.error('Error fetching environments:', error);
     }
+  };
+
+  const toggleStepCollapse = (stepNumber) => {
+    const newCollapsedSteps = new Set(collapsedSteps);
+    if (newCollapsedSteps.has(stepNumber)) {
+      newCollapsedSteps.delete(stepNumber);
+    } else {
+      newCollapsedSteps.add(stepNumber);
+    }
+    setCollapsedSteps(newCollapsedSteps);
   };
 
   const loadEndpoints = async () => {
@@ -667,13 +1126,27 @@ const APITestGenerator = () => {
         </Alert>
       )}
 
-      <Section>
-        <SectionTitle>
-          <SectionIcon>
-            <FiCloud />
-          </SectionIcon>
-          Step 1: Choose Endpoint Loading Method
-        </SectionTitle>
+      <MainContent>
+          <StepWrapper>
+            <StepIndicator>
+              <StepNumber>1</StepNumber>
+              <StepContent>
+                <StepTitle>Choose Endpoint Loading Method</StepTitle>
+                <StepDescription>Select how you want to load your API endpoints for test generation</StepDescription>
+              </StepContent>
+              <CollapseToggle onClick={() => toggleStepCollapse(1)}>
+                {collapsedSteps.has(1) ? <FiChevronDown /> : <FiChevronUp />}
+              </CollapseToggle>
+            </StepIndicator>
+            
+            <CollapsibleSection isCollapsed={collapsedSteps.has(1)}>
+              <Section>
+            <SectionTitle>
+              <SectionIcon>
+                <FiCloud />
+              </SectionIcon>
+              Endpoint Loading Configuration
+            </SectionTitle>
         
         <TabContainer>
           <TabList>
@@ -724,6 +1197,29 @@ const APITestGenerator = () => {
                 </option>
               ))}
             </Select>
+            {selectedEnvironment && (
+                    <AuthStatusContainer>
+                      <AuthTypeDisplay>
+                        <AuthTypeBadge>{getAuthorizationStatus(selectedEnvironment).type}</AuthTypeBadge>
+                        <AuthStatusBadge className={getAuthorizationStatus(selectedEnvironment).status}>
+                          {getAuthorizationStatus(selectedEnvironment).enabled ? 'Enabled' : 'Disabled'}
+                        </AuthStatusBadge>
+                      </AuthTypeDisplay>
+                      {getAuthorizationStatus(selectedEnvironment).fields.length > 0 && (
+                        <AuthFieldsContainer>
+                          <AuthFieldsTitle>Authentication Details</AuthFieldsTitle>
+                          {getAuthorizationStatus(selectedEnvironment).fields.map((field, index) => (
+                            <AuthFieldRow key={index}>
+                              <AuthFieldLabel>{field.label}:</AuthFieldLabel>
+                              <AuthFieldValue className={field.masked ? 'masked' : ''}>
+                                {field.value}
+                              </AuthFieldValue>
+                            </AuthFieldRow>
+                          ))}
+                        </AuthFieldsContainer>
+                      )}
+                    </AuthStatusContainer>
+                  )}
           </TabContent>
 
           <TabContent $active={loadingMethod === 'swagger'}>
@@ -774,14 +1270,30 @@ const APITestGenerator = () => {
           )}
         </Button>
       </Section>
+            </CollapsibleSection>
+          </StepWrapper>
 
       {endpoints.length > 0 && (
-        <Section>
-          <SectionTitle>
-            <SectionIcon>
-              <FiSettings />
-            </SectionIcon>
-            Step 2: Select Endpoints
+        <>
+          <StepWrapper>
+            <StepIndicator>
+              <StepNumber>2</StepNumber>
+              <StepContent>
+                <StepTitle>Select Endpoints</StepTitle>
+                <StepDescription>Choose which API endpoints you want to generate tests for</StepDescription>
+              </StepContent>
+              <CollapseToggle onClick={() => toggleStepCollapse(2)}>
+                {collapsedSteps.has(2) ? <FiChevronDown /> : <FiChevronUp />}
+              </CollapseToggle>
+            </StepIndicator>
+            
+            <CollapsibleSection isCollapsed={collapsedSteps.has(2)}>
+              <Section>
+            <SectionTitle>
+              <SectionIcon>
+                <FiSettings />
+              </SectionIcon>
+              Endpoint Selection
             <SelectionControls style={{ marginLeft: 'auto' }}>
               <Button
                 className="secondary"
@@ -800,8 +1312,34 @@ const APITestGenerator = () => {
             </SelectionControls>
           </SectionTitle>
           
+          <SearchAndFilterContainer>
+            <SearchContainer>
+              <SearchIcon>
+                <FiSearch />
+              </SearchIcon>
+              <SearchInput
+                type="text"
+                placeholder="Search endpoints by path or summary..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </SearchContainer>
+            
+            <MethodFilters>
+              {['ALL', 'GET', 'POST', 'PUT', 'DELETE'].map((method) => (
+                <MethodFilterButton
+                  key={method}
+                  className={selectedMethod === method ? `${method.toLowerCase()} active` : method.toLowerCase()}
+                  onClick={() => setSelectedMethod(method)}
+                >
+                  {method}
+                </MethodFilterButton>
+              ))}
+            </MethodFilters>
+          </SearchAndFilterContainer>
+          
           <EndpointList>
-            {endpoints.map((endpoint) => (
+            {filteredEndpoints.map((endpoint) => (
               <EndpointItem key={endpoint.id}>
                 <Checkbox
                   type="checkbox"
@@ -840,19 +1378,41 @@ const APITestGenerator = () => {
           </EndpointList>
           
           <SelectionInfo>
-            {selectedEndpoints.size} of {endpoints.length} endpoints selected
+            {selectedEndpoints.size} of {filteredEndpoints.length} endpoints selected
+            {filteredEndpoints.length !== endpoints.length && (
+              <span style={{ marginLeft: '8px', color: '#95a5a6' }}>
+                (filtered from {endpoints.length} total)
+              </span>
+            )}
           </SelectionInfo>
         </Section>
+            </CollapsibleSection>
+          </StepWrapper>
+        </>
       )}
 
       {selectedEndpoints.size > 0 && (
-        <Section>
-          <SectionTitle>
-            <SectionIcon>
-              <FiPlay />
-            </SectionIcon>
-            Step 3: Configure Test Generation
-          </SectionTitle>
+        <>
+          <StepWrapper>
+            <StepIndicator>
+              <StepNumber>3</StepNumber>
+              <StepContent>
+                <StepTitle>Configure Test Generation</StepTitle>
+                <StepDescription>Set up test generation options and parameters</StepDescription>
+              </StepContent>
+              <CollapseToggle onClick={() => toggleStepCollapse(3)}>
+                {collapsedSteps.has(3) ? <FiChevronDown /> : <FiChevronUp />}
+              </CollapseToggle>
+            </StepIndicator>
+            
+            <CollapsibleSection isCollapsed={collapsedSteps.has(3)}>
+              <Section>
+            <SectionTitle>
+              <SectionIcon>
+                <FiPlay />
+              </SectionIcon>
+              Test Generation Configuration
+            </SectionTitle>
           
           <RadioGroup>
             <div style={{ marginBottom: '12px', fontWeight: '500', color: '#2c3e50' }}>
@@ -944,6 +1504,29 @@ const APITestGenerator = () => {
                     </option>
                   ))}
                 </Select>
+                {selectedEnvironment && (
+                  <AuthStatusContainer>
+                    <AuthTypeDisplay>
+                      <AuthTypeBadge>{getAuthorizationStatus(selectedEnvironment).type}</AuthTypeBadge>
+                      <AuthStatusBadge className={getAuthorizationStatus(selectedEnvironment).status}>
+                        {getAuthorizationStatus(selectedEnvironment).enabled ? 'Enabled' : 'Disabled'}
+                      </AuthStatusBadge>
+                    </AuthTypeDisplay>
+                    {getAuthorizationStatus(selectedEnvironment).fields && getAuthorizationStatus(selectedEnvironment).fields.length > 0 && (
+                      <AuthFieldsContainer>
+                        <AuthFieldsTitle>Authentication Details</AuthFieldsTitle>
+                        {getAuthorizationStatus(selectedEnvironment).fields.map((field, index) => (
+                          <AuthFieldRow key={index}>
+                            <AuthFieldLabel>{field.label}:</AuthFieldLabel>
+                            <AuthFieldValue className={field.masked ? 'masked' : ''}>
+                              {field.value}
+                            </AuthFieldValue>
+                          </AuthFieldRow>
+                        ))}
+                      </AuthFieldsContainer>
+                    )}
+                  </AuthStatusContainer>
+                )}
                 <div style={{ fontSize: '12px', color: '#7f8c8d' }}>
                   Select an environment with LLM configuration for AI-enhanced test generation.
                 </div>
@@ -1007,12 +1590,16 @@ const APITestGenerator = () => {
             ) : (
               <>
                 <FiCheck />
-                Save Test File{selectedEndpoints.size > 1 ? 's' : ''}
+                Generate API Test{selectedEndpoints.size > 1 ? 's' : ''}
               </>
             )}
           </Button>
-        </Section>
-      )}
+          </Section>
+            </CollapsibleSection>
+          </StepWrapper>
+         </>
+       )}
+      </MainContent>
 
       {generatedCode && (
         <GeneratedCode>

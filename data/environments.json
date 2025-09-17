@@ -30,6 +30,18 @@
       "baseUrl": "http://10.100.100.102:5013/v1",
       "llmProvider": "openai"
     },
+    "authorization": {
+      "enabled": true,
+      "type": "bearer",
+      "token": "${API_TOKEN}",
+      "username": "${API_USERNAME}",
+      "password": "${API_PASSWORD}",
+      "apiKey": "${API_KEY}",
+      "customHeaders": {
+        "X-API-Key": "${API_KEY}",
+        "Authorization": "Bearer ${API_TOKEN}"
+      }
+    },
     "createdAt": "2025-09-04T18:07:35.071Z",
     "updatedAt": "2025-09-16T21:12:15.335Z",
     "status": "active"
@@ -64,6 +76,15 @@
       "model": "llama3.1:8b",
       "baseUrl": "http://localhost:11434/",
       "llmProvider": "Ollama"
+    },
+    "authorization": {
+      "enabled": false,
+      "type": "basic",
+      "token": "${API_TOKEN}",
+      "username": "${API_USERNAME}",
+      "password": "${API_PASSWORD}",
+      "apiKey": "${API_KEY}",
+      "customHeaders": {}
     },
     "createdAt": "2025-09-09T19:36:10.270Z",
     "updatedAt": "2025-09-16T21:54:04.004Z",
@@ -100,6 +121,17 @@
       "baseUrl": "https://openrouter.ai",
       "llmProvider": ""
     },
+    "authorization": {
+      "enabled": true,
+      "type": "apiKey",
+      "token": "${API_TOKEN}",
+      "username": "${API_USERNAME}",
+      "password": "${API_PASSWORD}",
+      "apiKey": "${API_KEY}",
+      "customHeaders": {
+        "X-API-Key": "${API_KEY}"
+      }
+    },
     "createdAt": "2025-09-09T22:25:17.412Z",
     "updatedAt": "2025-09-15T19:44:22.927Z",
     "status": "active"
@@ -130,13 +162,77 @@
     "llmConfiguration": {
       "enabled": true,
       "provider": "openrouter",
-      "apiKey": "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",
+      "apiKey": "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",
       "model": "deepseek/deepseek-chat-v3.1:free",
       "baseUrl": "https://openrouter.ai",
       "llmProvider": ""
     },
+    "authorization": {
+      "enabled": true,
+      "type": "bearer",
+      "token": "${API_TOKEN}",
+      "username": "${API_USERNAME}",
+      "password": "${API_PASSWORD}",
+      "apiKey": "${API_KEY}",
+      "customHeaders": {
+        "Authorization": "Bearer ${API_TOKEN}",
+        "X-API-Key": "${API_KEY}"
+      }
+    },
     "createdAt": "2025-09-13T13:39:32.208Z",
-    "updatedAt": "2025-09-16T20:59:08.132Z",
+    "updatedAt": "2025-09-17T17:56:11.420Z",
+    "status": "active"
+  },
+  {
+    "_id": "oauth-test-env-001",
+    "name": "OAuth Test Environment",
+    "key": "oauth-test",
+    "description": "Test environment with OAuth2 configuration",
+    "baseUrl": "https://api.example.com",
+    "variables": {
+      "BASE_URL": "https://api.example.com",
+      "API_URL": "https://api.example.com/v1",
+      "USERNAME": "testuser",
+      "PASSWORD": "testpass",
+      "TIMEOUT": 30000,
+      "BROWSER": "chromium",
+      "HEADLESS": false,
+      "RETRIES": 1
+    },
+    "jiraIntegration": {
+      "enabled": false,
+      "url": "",
+      "username": "",
+      "password": "",
+      "projectKey": "",
+      "apiToken": ""
+    },
+    "llmConfiguration": {
+      "enabled": true,
+      "provider": "openrouter",
+      "apiKey": "sk-or-v1-test-oauth-key",
+      "model": "deepseek/deepseek-chat-v3.1:free",
+      "baseUrl": "https://openrouter.ai",
+      "llmProvider": ""
+    },
+    "authorization": {
+      "enabled": true,
+      "type": "oauth2",
+      "clientId": "oauth_client_12345",
+      "clientSecret": "oauth_secret_abcdef",
+      "scope": "read write admin",
+      "authUrl": "https://api.example.com/oauth/authorize",
+      "tokenUrl": "https://api.example.com/oauth/token",
+      "redirectUri": "https://localhost:3000/callback",
+      "token": "${OAUTH_ACCESS_TOKEN}",
+      "refreshToken": "${OAUTH_REFRESH_TOKEN}",
+      "customHeaders": {
+        "Authorization": "Bearer ${OAUTH_ACCESS_TOKEN}",
+        "X-Client-ID": "oauth_client_12345"
+      }
+    },
+    "createdAt": "2025-01-17T10:00:00.000Z",
+    "updatedAt": "2025-01-17T10:00:00.000Z",
     "status": "active"
   }
 ]

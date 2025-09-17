@@ -284,6 +284,7 @@ function parseSwaggerSpec(swaggerSpec) {
 function generateIndividualAPITest(endpoint, environment) {
   const baseUrl = environment?.variables?.API_URL || environment?.variables?.BASE_URL || 'https://fakerestapi.azurewebsites.net';
   const timeout = environment?.variables?.TIMEOUT || 30000;
+  const authHeaders = buildAuthorizationHeaders(environment);
   
   const expectedStatus = getExpectedStatus(endpoint);
   const endpointPath = endpoint.path || endpoint.url || '/unknown';
@@ -299,10 +300,7 @@ test.describe('${testName}', () => {
     const { request } = await import('@playwright/test');
     requestContext = await request.newContext({
       baseURL: '${baseUrl}',
-      extraHTTPHeaders: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
+      extraHTTPHeaders: ${JSON.stringify(authHeaders, null, 8)},
       timeout: ${timeout}
     });
   });
@@ -324,10 +322,7 @@ test.describe('${testName}', () => {
     const requestDetails = {
       method: '${endpoint.method}',
       url: '${baseUrl}${endpointPath}',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
+      headers: ${JSON.stringify(authHeaders, null, 8)},
       timestamp: new Date().toISOString()
     };
     
@@ -380,6 +375,7 @@ test.describe('${testName}', () => {
 function generateE2EAPITestSuite(endpoints, resourceName, environment) {
   const baseUrl = environment?.variables?.API_URL || environment?.variables?.BASE_URL || 'https://fakerestapi.azurewebsites.net';
   const timeout = environment?.variables?.TIMEOUT || 30000;
+  const authHeaders = buildAuthorizationHeaders(environment);
   
   // Analyze and sort endpoints by CRUD operation type
   const crudOperations = {
@@ -407,10 +403,7 @@ test.describe('${resourceName} E2E API Test Suite', () => {
     const { request } = await import('@playwright/test');
     requestContext = await request.newContext({
       baseURL: '${baseUrl}',
-      extraHTTPHeaders: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
+      extraHTTPHeaders: ${JSON.stringify(authHeaders, null, 8)},
       timeout: ${timeout}
     });
   });
@@ -828,6 +821,66 @@ async function saveTestFile(fileName, code, category = 'api-tests') {
   }
 }
 
+// Helper function to resolve environment variables in authorization config
+function resolveEnvironmentVariables(value, environment) {
+  if (!value || typeof value !== 'string') return value;
+  
+  // Replace ${VARIABLE_NAME} with actual values from environment.variables
+  return value.replace(/\$\{([^}]+)\}/g, (match, varName) => {
+    return environment?.variables?.[varName] || match;
+  });
+}
+
+// Helper function to build authorization headers from environment
+function buildAuthorizationHeaders(environment) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  };
+  
+  if (!environment?.authorization?.enabled) {
+    return headers;
+  }
+  
+  const auth = environment.authorization;
+  
+  switch (auth.type) {
+    case 'bearer':
+      if (auth.token) {
+        const token = resolveEnvironmentVariables(auth.token, environment);
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      break;
+      
+    case 'basic':
+      if (auth.username && auth.password) {
+        const username = resolveEnvironmentVariables(auth.username, environment);
+        const password = resolveEnvironmentVariables(auth.password, environment);
+        const credentials = Buffer.from(`${username}:${password}`).toString('base64');
+        headers['Authorization'] = `Basic ${credentials}`;
+      }
+      break;
+      
+    case 'apiKey':
+      if (auth.apiKey) {
+        const apiKey = resolveEnvironmentVariables(auth.apiKey, environment);
+        headers['X-API-Key'] = apiKey;
+      }
+      break;
+  }
+  
+  // Add custom headers
+  if (auth.customHeaders) {
+    Object.entries(auth.customHeaders).forEach(([key, value]) => {
+      if (value) {
+        headers[key] = resolveEnvironmentVariables(value, environment);
+      }
+    });
+  }
+  
+  return headers;
+}
+
 // LLM-powered test generation functions
 async function generateLLMAPITest(endpoint, environment, variation = 'happy-path') {
   console.log('=== generateLLMAPITest called ===');
@@ -895,9 +948,13 @@ async function generateLLME2EAPITestSuite(endpoints, resourceName, environment) 
 }
 
 function createEnhancedAPITestPrompt(endpoint, variation, baseUrl, environment) {
-  const apiUrl = environment?.variables?.API_URL || baseUrl;
+  const apiUrl = baseUrl || environment?.variables?.API_URL || environment?.variables?.BASE_URL || 'https://fakerestapi.azurewebsites.net';
   const testVariations = environment?.variables?.TEST_VARIATIONS || ['happy-path', 'negative', 'edge-case', 'boundary', 'security'];
-  
+  const authHeaders = buildAuthorizationHeaders(environment);
+  const authInfo = environment?.authorization?.enabled ? 
+    `\n- **Authorization**: ${environment.authorization.type} (${environment.authorization.enabled ? 'enabled' : 'disabled'})` : 
+    '\n- **Authorization**: None';
+ 
   return `You are an expert API testing engineer. Generate a comprehensive Playwright API test for the following endpoint with advanced schema analysis and test variations.
 
 ## API Endpoint Information:
@@ -906,7 +963,7 @@ function createEnhancedAPITestPrompt(endpoint, variation, baseUrl, environment) 
 - **Base URL**: ${apiUrl}
 - **Test Variation**: ${variation}
 - **Summary**: ${endpoint.summary || 'API endpoint test'}
-- **Description**: ${endpoint.description || 'Test API endpoint functionality'}
+- **Description**: ${endpoint.description || 'Test API endpoint functionality'}${authInfo}
 
 ## Schema Analysis Requirements:
 1. **Request Schema Analysis**:
@@ -942,10 +999,7 @@ test.describe('${endpoint.method} ${endpoint.path || endpoint.url || '/unknown'}
     const { request } = await import('@playwright/test');
     requestContext = await request.newContext({
       baseURL: '${apiUrl}',
-      extraHTTPHeaders: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
+      extraHTTPHeaders: ${JSON.stringify(authHeaders, null, 8)},
       timeout: 30000
     });
   });

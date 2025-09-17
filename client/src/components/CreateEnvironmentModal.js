@@ -175,28 +175,36 @@ const Button = styled.button`
   align-items: center;
   gap: 8px;
   transition: all 0.3s ease;
-  
+
   &.primary {
     background-color: #3498db;
     color: white;
-    
+
     &:hover {
       background-color: #2980b9;
     }
   }
-  
+
   &.secondary {
     background-color: #95a5a6;
     color: white;
-    
+
     &:hover {
       background-color: #7f8c8d;
     }
   }
 `;
 
+const ErrorMessage = styled.div`
+  color: #e74c3c;
+  font-size: 12px;
+  margin-top: 4px;
+  font-weight: 500;
+`;
+
 const CreateEnvironmentModal = ({ onClose, onSubmit }) => {
   const [testingLLM, setTestingLLM] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
   const [formData, setFormData] = useState({
     name: '',
     key: '',
@@ -225,11 +233,64 @@ const CreateEnvironmentModal = ({ onClose, onSubmit }) => {
       apiKey: '',
       model: '',
       baseUrl: ''
+    },
+    authorization: {
+      enabled: false,
+      type: 'bearer',
+      token: '',
+      username: '',
+      password: '',
+      apiKey: '',
+      clientId: '',
+      clientSecret: '',
+      scope: '',
+      authUrl: '',
+      tokenUrl: '',
+      redirectUri: '',
+      customHeaders: {}
     }
   });
 
+  const validateField = (name, value) => {
+    const errors = {};
+    
+    // URL validation for OAuth fields
+    if (name === 'authorization.authUrl' || name === 'authorization.tokenUrl' || name === 'authorization.redirectUri') {
+      if (value && !/^https?:\/\/.+/.test(value)) {
+        errors[name] = 'Please enter a valid URL (must start with http:// or https://)';
+      }
+    }
+    
+    // Required field validation for OAuth2
+    if (formData.authorization.enabled && formData.authorization.type === 'oauth2') {
+      if (name === 'authorization.clientId' && !value.trim()) {
+        errors[name] = 'Client ID is required for OAuth2';
+      }
+      if (name === 'authorization.clientSecret' && !value.trim()) {
+        errors[name] = 'Client Secret is required for OAuth2';
+      }
+      if (name === 'authorization.authUrl' && !value.trim()) {
+        errors[name] = 'Authorization URL is required for OAuth2';
+      }
+      if (name === 'authorization.tokenUrl' && !value.trim()) {
+        errors[name] = 'Token URL is required for OAuth2';
+      }
+    }
+    
+    return errors;
+  };
+
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
+    const finalValue = type === 'checkbox' ? checked : value;
+    
+    // Validate the field
+    const fieldErrors = validateField(name, finalValue);
+    setValidationErrors(prev => ({
+      ...prev,
+      ...fieldErrors,
+      [name]: fieldErrors[name] || undefined
+    }));
     
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
@@ -237,13 +298,13 @@ const CreateEnvironmentModal = ({ onClose, onSubmit }) => {
         ...prev,
         [parent]: {
           ...prev[parent],
-          [child]: type === 'checkbox' ? checked : value
+          [child]: finalValue
         }
       }));
     } else {
       setFormData(prev => ({
         ...prev,
-        [name]: type === 'checkbox' ? checked : value
+        [name]: finalValue
       }));
     }
   };
@@ -644,6 +705,208 @@ const CreateEnvironmentModal = ({ onClose, onSubmit }) => {
                     {testingLLM ? 'Testing...' : 'Test LLM Connection'}
                   </Button>
                 </FormGroup>
+              </Grid>
+            )}
+
+            <SectionTitle>Authorization Configuration</SectionTitle>
+            
+            <ToggleContainer>
+              <ToggleLabel>Enable Authorization</ToggleLabel>
+              <ToggleButton
+                type="button"
+                onClick={() => setFormData(prev => ({
+                  ...prev,
+                  authorization: {
+                    ...prev.authorization,
+                    enabled: !prev.authorization.enabled
+                  }
+                }))}
+              >
+                {formData.authorization.enabled ? <FiToggleRight color="#3498db" /> : <FiToggleLeft color="#bdc3c7" />}
+              </ToggleButton>
+            </ToggleContainer>
+
+            {formData.authorization.enabled && (
+              <Grid>
+                <FormGroup>
+                  <Label htmlFor="authType">Authentication Type</Label>
+                  <select
+                    id="authType"
+                    name="authorization.type"
+                    value={formData.authorization.type}
+                    onChange={handleInputChange}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      backgroundColor: 'white'
+                    }}
+                  >
+                    <option value="bearer">Bearer Token</option>
+                    <option value="basic">Basic Auth</option>
+                    <option value="apiKey">API Key</option>
+                    <option value="oauth1">OAuth 1.0</option>
+                    <option value="oauth2">OAuth 2.0</option>
+                  </select>
+                </FormGroup>
+
+                {(formData.authorization.type === 'bearer' || formData.authorization.type === 'oauth1' || formData.authorization.type === 'oauth2') && (
+                  <FormGroup>
+                    <Label htmlFor="authToken">Token</Label>
+                    <Input
+                      type="password"
+                      id="authToken"
+                      name="authorization.token"
+                      value={formData.authorization.token}
+                      onChange={handleInputChange}
+                      placeholder="Enter token or use ${API_TOKEN}"
+                    />
+                  </FormGroup>
+                )}
+
+                {(formData.authorization.type === 'basic' || formData.authorization.type === 'oauth1') && (
+                  <>
+                    <FormGroup>
+                      <Label htmlFor="authUsername">Username</Label>
+                      <Input
+                        type="text"
+                        id="authUsername"
+                        name="authorization.username"
+                        value={formData.authorization.username}
+                        onChange={handleInputChange}
+                        placeholder="Enter username or use ${API_USERNAME}"
+                      />
+                    </FormGroup>
+                    <FormGroup>
+                      <Label htmlFor="authPassword">Password</Label>
+                      <Input
+                        type="password"
+                        id="authPassword"
+                        name="authorization.password"
+                        value={formData.authorization.password}
+                        onChange={handleInputChange}
+                        placeholder="Enter password or use ${API_PASSWORD}"
+                      />
+                    </FormGroup>
+                  </>
+                )}
+
+                {formData.authorization.type === 'apiKey' && (
+                  <FormGroup>
+                    <Label htmlFor="authApiKey">API Key</Label>
+                    <Input
+                      type="password"
+                      id="authApiKey"
+                      name="authorization.apiKey"
+                      value={formData.authorization.apiKey}
+                      onChange={handleInputChange}
+                      placeholder="Enter API key or use ${API_KEY}"
+                    />
+                  </FormGroup>
+                )}
+
+                {formData.authorization.type === 'oauth2' && (
+                  <>
+                    <FormGroup>
+                      <Label htmlFor="authClientId">Client ID</Label>
+                      <Input
+                        type="text"
+                        id="authClientId"
+                        name="authorization.clientId"
+                        value={formData.authorization.clientId}
+                        onChange={handleInputChange}
+                        placeholder="OAuth2 Client ID"
+                        style={{
+                          borderColor: validationErrors['authorization.clientId'] ? '#e74c3c' : '#ddd'
+                        }}
+                      />
+                      {validationErrors['authorization.clientId'] && (
+                        <ErrorMessage>{validationErrors['authorization.clientId']}</ErrorMessage>
+                      )}
+                    </FormGroup>
+                    <FormGroup>
+                      <Label htmlFor="authClientSecret">Client Secret</Label>
+                      <Input
+                        type="password"
+                        id="authClientSecret"
+                        name="authorization.clientSecret"
+                        value={formData.authorization.clientSecret}
+                        onChange={handleInputChange}
+                        placeholder="OAuth2 Client Secret"
+                        style={{
+                          borderColor: validationErrors['authorization.clientSecret'] ? '#e74c3c' : '#ddd'
+                        }}
+                      />
+                      {validationErrors['authorization.clientSecret'] && (
+                        <ErrorMessage>{validationErrors['authorization.clientSecret']}</ErrorMessage>
+                      )}
+                    </FormGroup>
+                    <FormGroup>
+                      <Label htmlFor="authScope">Scope</Label>
+                      <Input
+                        type="text"
+                        id="authScope"
+                        name="authorization.scope"
+                        value={formData.authorization.scope}
+                        onChange={handleInputChange}
+                        placeholder="read write admin"
+                      />
+                    </FormGroup>
+                    <FormGroup>
+                      <Label htmlFor="authUrl">Authorization URL</Label>
+                      <Input
+                        type="url"
+                        id="authUrl"
+                        name="authorization.authUrl"
+                        value={formData.authorization.authUrl}
+                        onChange={handleInputChange}
+                        placeholder="https://api.example.com/oauth/authorize"
+                        style={{
+                          borderColor: validationErrors['authorization.authUrl'] ? '#e74c3c' : '#ddd'
+                        }}
+                      />
+                      {validationErrors['authorization.authUrl'] && (
+                        <ErrorMessage>{validationErrors['authorization.authUrl']}</ErrorMessage>
+                      )}
+                    </FormGroup>
+                    <FormGroup>
+                      <Label htmlFor="tokenUrl">Token URL</Label>
+                      <Input
+                        type="url"
+                        id="tokenUrl"
+                        name="authorization.tokenUrl"
+                        value={formData.authorization.tokenUrl}
+                        onChange={handleInputChange}
+                        placeholder="https://api.example.com/oauth/token"
+                        style={{
+                          borderColor: validationErrors['authorization.tokenUrl'] ? '#e74c3c' : '#ddd'
+                        }}
+                      />
+                      {validationErrors['authorization.tokenUrl'] && (
+                        <ErrorMessage>{validationErrors['authorization.tokenUrl']}</ErrorMessage>
+                      )}
+                    </FormGroup>
+                    <FormGroup>
+                      <Label htmlFor="redirectUri">Redirect URI</Label>
+                      <Input
+                        type="url"
+                        id="redirectUri"
+                        name="authorization.redirectUri"
+                        value={formData.authorization.redirectUri}
+                        onChange={handleInputChange}
+                        placeholder="https://localhost:3000/callback"
+                        style={{
+                          borderColor: validationErrors['authorization.redirectUri'] ? '#e74c3c' : '#ddd'
+                        }}
+                      />
+                      {validationErrors['authorization.redirectUri'] && (
+                        <ErrorMessage>{validationErrors['authorization.redirectUri']}</ErrorMessage>
+                      )}
+                    </FormGroup>
+                  </>
+                )}
               </Grid>
             )}
           </ModalBody>

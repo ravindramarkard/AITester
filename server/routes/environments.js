@@ -38,7 +38,8 @@ router.post('/', async (req, res) => {
       description,
       variables,
       jiraIntegration,
-      llmConfiguration
+      llmConfiguration,
+      authorization
     } = req.body;
     
     // Validate required fields
@@ -82,6 +83,22 @@ router.post('/', async (req, res) => {
         model: llmConfiguration?.model || '',
         baseUrl: llmConfiguration?.baseUrl || '',
         ...llmConfiguration
+      },
+      authorization: {
+        enabled: authorization?.enabled || false,
+        type: authorization?.type || 'bearer',
+        token: authorization?.token || '',
+        username: authorization?.username || '',
+        password: authorization?.password || '',
+        apiKey: authorization?.apiKey || '',
+        clientId: authorization?.clientId || '',
+        clientSecret: authorization?.clientSecret || '',
+        scope: authorization?.scope || '',
+        authUrl: authorization?.authUrl || '',
+        tokenUrl: authorization?.tokenUrl || '',
+        redirectUri: authorization?.redirectUri || '',
+        customHeaders: authorization?.customHeaders || {},
+        ...authorization
       }
     };
     
@@ -102,6 +119,7 @@ router.put('/:id', async (req, res) => {
       variables,
       jiraIntegration,
       llmConfiguration,
+      authorization,
       status
     } = req.body;
     
@@ -142,6 +160,13 @@ router.put('/:id', async (req, res) => {
       updateData.llmConfiguration = {
         ...environment.llmConfiguration,
         ...llmConfiguration
+      };
+    }
+    
+    if (authorization) {
+      updateData.authorization = {
+        ...environment.authorization,
+        ...authorization
       };
     }
     

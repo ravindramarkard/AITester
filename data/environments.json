@@ -5,14 +5,15 @@
     "key": "llm-test",
     "description": "Environment for testing LLM code generation",
     "variables": {
-      "BASE_URL": "https://opensource-demo.orangehrmlive.com/web/index.php/dashboard/index",
-      "API_URL": "https://fakerestapi.azurewebsites.net",
-      "USERNAME": "Admin",
-      "PASSWORD": "admin123",
+      "BASE_URL": "https://staging-shaheen.dev.g42a.ae",
+      "API_URL": "https://p-tray.dev.g42a.ae",
+      "USERNAME": "piyush.safaya",
+      "PASSWORD": "piyush1234",
       "TIMEOUT": "30000",
       "BROWSER": "chromium",
       "HEADLESS": false,
-      "RETRIES": 1
+      "RETRIES": 1,
+      "API_TOKEN": "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJaYS1qaUdab1JDTkxoazZUUkZ1WUY5bEVpbW9ncXhVOE91Ulpoak5VMmZFIn0.eyJleHAiOjE3NTgyMDE4NzgsImlhdCI6MTc1ODE5NDY3OCwianRpIjoiYTU5YTMzNzktMDA1ZC00OTUxLWI0ZjItNGIyODJiMzVhNDkyIiwiaXNzIjoiaHR0cHM6Ly9rZXljbG9hay5kZXYuZzQyYS5hZS9hdXRoL3JlYWxtcy9nNDJhIiwic3ViIjoiZjcxZTE5ZTgtODNjMS00ZGI2LWFlY2MtMTM3YmU1YTEwZmQxIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoic2hhaGVlbiIsInNlc3Npb25fc3RhdGUiOiJlMDNjNDViNi1lMzZjLTQ5ZTgtYWFmYy1hOWNhNjBkYTM4YTAiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbIioiXSwicmVzb3VyY2VfYWNjZXNzIjp7ImNhc2UtYXBwIjp7InJvbGVzIjpbInNoYWhlZW5fZnVsbF9zY29wZV9jb2xsYWIiXX19LCJzY29wZSI6Im9wZW5pZCBwcm9maWxlIiwiZ3JvdXBzX3BhdGgiOlsiL2c0MmFfZGVmYXVsdC9HNDIgLSBET05UIENIQU5HRS9IZXJjdWxlcyJdLCJyb2xlcyI6WyJnNDJhX2Y3MWUxOWU4LTgzYzEtNGRiNi1hZWNjLTEzN2JlNWExMGZkMV91c2VyX3JvbGUiLCJnNDJhX2Y3MWUxOWU4LTgzYzEtNGRiNi1hZWNjLTEzN2JlNWExMGZkMV91c2VyX3JvbGUiLCJnNDJhX2Y3MWUxOWU4LTgzYzEtNGRiNi1hZWNjLTEzN2JlNWExMGZkMV91c2VyX3JvbGUiLCJzaGFoZWVuX3NldCIsInNoYWhlZW5fbGluayIsInNoYWhlZW5fY2hhdCIsInNoYWhlZW5fZGF0YV9zb3VyY2UiLCJzaGFoZWVuX3NldHRpbmdzIiwic2hhaGVlbl9wcm9maWxlIiwic2hhaGVlbl9tYXAiLCJzaGFoZWVuX3NlYXJjaCIsInNoYWhlZW5fY2FzZSIsInNoYWhlZW5fdXBsb2FkIl0sIm5hbWUiOiJOaXRpc2ggU2hhcm1hIiwiZ3JvdXBzIjpbIkhlcmN1bGVzIl0sInByZWZlcnJlZF91c2VybmFtZSI6Im5pdGlzaC5zaGFybWEiLCJnaXZlbl9uYW1lIjoiTml0aXNoIiwiZmFtaWx5X25hbWUiOiJTaGFybWEifQ.Ok2gq-JilRalOjriQCslRq7lqxwOPcjaqTl1UwAjn63_usyrhZaGMwAzgzYpbTCLPIQEjWYZzBVF3YjJLO16ljMkcyFhbT09EMn7hzFJRfLXOt8LRLiceCGqpSDgP1o_XoxpxFnY33dXiGpbGz4gCmaO8ZKIjGjo__aBRPNRYlUahclt4efmu5rZCl4oKZC_BOpoUnnd0NM1a1kyghSuyrdOvVVv1Jhyx1gFdX7B57xRvoPX2ff1MOqc5uPTRV2MNxcShILk-TOnLrcQclAC_r47bot5z5W3MB0pku3AoETx0bc2-iCVlQBsDdNbz6aJ-KVVQ3p1zsNh4of6vApFUw"
     },
     "jiraIntegration": {
       "enabled": false,
@@ -32,18 +33,25 @@
     },
     "authorization": {
       "enabled": true,
-      "type": "bearer",
-      "token": "${API_TOKEN}",
-      "username": "${API_USERNAME}",
-      "password": "${API_PASSWORD}",
+      "type": "oauth2",
+      "token": "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJaYS1qaUdab1JDTkxoazZUUkZ1WUY5bEVpbW9ncXhVOE91Ulpoak5VMmZFIn0.eyJleHAiOjE3NTgyMDE4NzgsImlhdCI6MTc1ODE5NDY3OCwianRpIjoiYTU5YTMzNzktMDA1ZC00OTUxLWI0ZjItNGIyODJiMzVhNDkyIiwiaXNzIjoiaHR0cHM6Ly9rZXljbG9hay5kZXYuZzQyYS5hZS9hdXRoL3JlYWxtcy9nNDJhIiwic3ViIjoiZjcxZTE5ZTgtODNjMS00ZGI2LWFlY2MtMTM3YmU1YTEwZmQxIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoic2hhaGVlbiIsInNlc3Npb25fc3RhdGUiOiJlMDNjNDViNi1lMzZjLTQ5ZTgtYWFmYy1hOWNhNjBkYTM4YTAiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbIioiXSwicmVzb3VyY2VfYWNjZXNzIjp7ImNhc2UtYXBwIjp7InJvbGVzIjpbInNoYWhlZW5fZnVsbF9zY29wZV9jb2xsYWIiXX19LCJzY29wZSI6Im9wZW5pZCBwcm9maWxlIiwiZ3JvdXBzX3BhdGgiOlsiL2c0MmFfZGVmYXVsdC9HNDIgLSBET05UIENIQU5HRS9IZXJjdWxlcyJdLCJyb2xlcyI6WyJnNDJhX2Y3MWUxOWU4LTgzYzEtNGRiNi1hZWNjLTEzN2JlNWExMGZkMV91c2VyX3JvbGUiLCJnNDJhX2Y3MWUxOWU4LTgzYzEtNGRiNi1hZWNjLTEzN2JlNWExMGZkMV91c2VyX3JvbGUiLCJnNDJhX2Y3MWUxOWU4LTgzYzEtNGRiNi1hZWNjLTEzN2JlNWExMGZkMV91c2VyX3JvbGUiLCJzaGFoZWVuX3NldCIsInNoYWhlZW5fbGluayIsInNoYWhlZW5fY2hhdCIsInNoYWhlZW5fZGF0YV9zb3VyY2UiLCJzaGFoZWVuX3NldHRpbmdzIiwic2hhaGVlbl9wcm9maWxlIiwic2hhaGVlbl9tYXAiLCJzaGFoZWVuX3NlYXJjaCIsInNoYWhlZW5fY2FzZSIsInNoYWhlZW5fdXBsb2FkIl0sIm5hbWUiOiJOaXRpc2ggU2hhcm1hIiwiZ3JvdXBzIjpbIkhlcmN1bGVzIl0sInByZWZlcnJlZF91c2VybmFtZSI6Im5pdGlzaC5zaGFybWEiLCJnaXZlbl9uYW1lIjoiTml0aXNoIiwiZmFtaWx5X25hbWUiOiJTaGFybWEifQ.Ok2gq-JilRalOjriQCslRq7lqxwOPcjaqTl1UwAjn63_usyrhZaGMwAzgzYpbTCLPIQEjWYZzBVF3YjJLO16ljMkcyFhbT09EMn7hzFJRfLXOt8LRLiceCGqpSDgP1o_XoxpxFnY33dXiGpbGz4gCmaO8ZKIjGjo__aBRPNRYlUahclt4efmu5rZCl4oKZC_BOpoUnnd0NM1a1kyghSuyrdOvVVv1Jhyx1gFdX7B57xRvoPX2ff1MOqc5uPTRV2MNxcShILk-TOnLrcQclAC_r47bot5z5W3MB0pku3AoETx0bc2-iCVlQBsDdNbz6aJ-KVVQ3p1zsNh4of6vApFUw",
+      "username": "nitish.sharma",
+      "password": "Password@123",
       "apiKey": "${API_KEY}",
       "customHeaders": {
         "X-API-Key": "${API_KEY}",
         "Authorization": "Bearer ${API_TOKEN}"
-      }
+      },
+      "clientId": "shaheen",
+      "clientSecret": "4f93f37f-0d79-4533-8519-7dd42492c647",
+      "scope": "openid",
+      "authUrl": "https://keycloak.dev.g42a.ae/auth/realms/g42a/protocol/openid-connect/token",
+      "tokenUrl": "https://keycloak.dev.g42a.ae/auth/realms/g42a/protocol/openid-connect/token",
+      "redirectUri": "https://p-tray.dev.g42a.ae/",
+      "grantType": "password"
     },
     "createdAt": "2025-09-04T18:07:35.071Z",
-    "updatedAt": "2025-09-16T21:12:15.335Z",
+    "updatedAt": "2025-09-18T11:25:54.264Z",
     "status": "active"
   },
   {

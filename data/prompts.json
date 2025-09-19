@@ -1195,5 +1195,67 @@
     },
     "createdAt": "2025-09-13T15:13:36.136Z",
     "updatedAt": "2025-09-13T15:13:36.136Z"
+  },
+  {
+    "_id": "798d6309-379d-4ab5-8b27-e8167389fc6f",
+    "title": "Applogin",
+    "description": "applogin",
+    "promptContent": "Navigate to given url\nType username ravindra.markard  into Username field\nType password Stage1234 into Password field\nClick on Log in button",
+    "testType": "UI Test",
+    "tags": [
+      "smoke"
+    ],
+    "additionalContext": "",
+    "baseUrl": "https://staging-shaheen.dev.g42a.ae/",
+    "additionalInformation": "",
+    "projectId": "default-project",
+    "modelId": "default-model",
+    "modelName": "Default Model",
+    "promptId": "36dc5dbf-1c1f-42b0-b7f9-ea1d2da5c513",
+    "status": "draft",
+    "generatedTests": [],
+    "metadata": {
+      "parsedSteps": [
+        {
+          "stepNumber": 1,
+          "originalText": "Navigate to given url",
+          "action": "navigate",
+          "target": "Navigate given url",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 2,
+          "originalText": "Type username ravindra.markard  into Username field",
+          "action": "fill",
+          "target": "input",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 3,
+          "originalText": "Type password Stage1234 into Password field",
+          "action": "fill",
+          "target": "input",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 4,
+          "originalText": "Click on Log in button",
+          "action": "click",
+          "target": "button",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        }
+      ],
+      "timestamp": "2025-09-18T12:18:00.132Z"
+    },
+    "createdAt": "2025-09-18T12:18:00.133Z",
+    "updatedAt": "2025-09-18T12:18:00.133Z"
   }
 ]

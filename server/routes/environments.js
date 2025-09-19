@@ -303,4 +303,103 @@ router.post('/test-llm-connection', async (req, res) => {
   }
 });
 
+// Test OAuth token retrieval (supports password and client_credentials grants)
+router.post('/test-oauth-token', async (req, res) => {
+  try {
+    const axios = require('axios');
+    const {
+      clientId,
+      clientSecret,
+      tokenUrl,
+      scope,
+      grantType = 'password',
+      username,
+      password
+    } = req.body;
+
+    if (!clientId || !tokenUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'clientId and tokenUrl are required'
+      });
+    }
+
+    if (grantType === 'password' && (!username || !password)) {
+      return res.status(400).json({
+        success: false,
+        message: 'username and password are required for password grant'
+      });
+    }
+
+    const form = new URLSearchParams();
+    form.append('client_id', clientId);
+    form.append('grant_type', grantType);
+    if (scope) form.append('scope', scope);
+    if (grantType === 'password') {
+      form.append('username', username);
+      form.append('password', password);
+    }
+
+    try {
+      const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+      // Prefer HTTP Basic when clientSecret is present (commonly required by Keycloak confidential clients)
+      if (clientSecret) {
+        const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+        headers['Authorization'] = `Basic ${basic}`;
+      } else {
+        // Public client: include client_secret only if provided; otherwise none
+        // Keep client_id in body only (already appended)
+      }
+
+      const body = new URLSearchParams(form);
+      if (!clientSecret && req.body.clientSecret) {
+        body.append('client_secret', req.body.clientSecret);
+      }
+
+      let response;
+      try {
+        response = await axios.post(tokenUrl, body.toString(), { headers, timeout: 15000 });
+      } catch (e) {
+        // Retry with Accept header for servers requiring it
+        if (e.response && (e.response.status === 406 || e.response.status === 415)) {
+          const retryHeaders = { ...headers, 'Accept': 'application/json' };
+          response = await axios.post(tokenUrl, body.toString(), { headers: retryHeaders, timeout: 15000 });
+        } else {
+          throw e;
+        }
+      }
+
+      const data = response.data || {};
+      if (data.access_token) {
+        return res.json({
+          success: true,
+          message: 'OAuth token retrieved successfully',
+          token: data.access_token,
+          tokenType: data.token_type || 'Bearer',
+          expiresIn: data.expires_in,
+          scope: data.scope
+        });
+      }
+
+      return res.json({
+        success: false,
+        message: 'Token retrieval failed - no access_token in response',
+        details: data
+      });
+    } catch (err) {
+      const status = err.response?.status;
+      const details = err.response?.data || err.message;
+      console.error('OAuth token fetch error:', details);
+      return res.status(status || 500).json({
+        success: false,
+        message: 'Failed to retrieve OAuth token',
+        error: details
+      });
+    }
+  } catch (error) {
+    console.error('Error in /test-oauth-token:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+  }
+});
+
 module.exports = router;

@@ -806,6 +806,134 @@ const APITestGenerator = () => {
   const [selectedMethod, setSelectedMethod] = useState('ALL');
   const [testVariations, setTestVariations] = useState(['happy-path']);
   const [collapsedSteps, setCollapsedSteps] = useState(new Set());
+  const [openApiComponents, setOpenApiComponents] = useState(null);
+
+  // Resolve an OpenAPI $ref like "#/components/schemas/User"
+  const resolveRefPointer = (ref, components) => {
+    if (!ref || !ref.startsWith('#/') || !components) return null;
+    const parts = ref.replace('#/', '').split('/');
+    let current = { components };
+    for (const part of parts) {
+      if (current && typeof current === 'object') {
+        current = current[part];
+      } else {
+        return null;
+      }
+    }
+    return current || null;
+  };
+
+  const deepClone = (obj) => {
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(deepClone);
+    const out = {};
+    for (const k of Object.keys(obj)) out[k] = deepClone(obj[k]);
+    return out;
+  };
+
+  // Merge array of schemas for simple allOf use cases (shallow merge, later entries override earlier)
+  const mergeSchemas = (schemas) => {
+    const result = {};
+    for (const s of schemas) {
+      Object.assign(result, s);
+      if (s.properties) {
+        result.properties = { ...(result.properties || {}), ...s.properties };
+      }
+      if (s.required) {
+        result.required = Array.from(new Set([...(result.required || []), ...s.required]));
+      }
+    }
+    return result;
+  };
+
+  const resolveSchema = (schema, components, seen = new Set()) => {
+    if (!schema || typeof schema !== 'object') return schema;
+
+    // Handle $ref at this node
+    if (schema.$ref) {
+      if (seen.has(schema.$ref)) return {}; // prevent cycles
+      seen.add(schema.$ref);
+      const target = resolveRefPointer(schema.$ref, components);
+      if (!target) return { ...schema }; // unresolved
+      // Merge sibling keys with resolved target per OpenAPI spec
+      const merged = { ...deepClone(target), ...deepClone({ ...schema, $ref: undefined }) };
+      return resolveSchema(merged, components, seen);
+    }
+
+    // Handle combinators
+    if (schema.allOf && Array.isArray(schema.allOf)) {
+      const parts = schema.allOf.map((s) => resolveSchema(s, components, new Set(seen)));
+      const merged = mergeSchemas(parts);
+      const rest = { ...schema };
+      delete rest.allOf;
+      return resolveSchema({ ...merged, ...rest }, components, seen);
+    }
+    if (schema.oneOf || schema.anyOf) {
+      const key = schema.oneOf ? 'oneOf' : 'anyOf';
+      const items = (schema[key] || []).map((s) => resolveSchema(s, components, new Set(seen)));
+      return { ...schema, [key]: items };
+    }
+
+    // Recurse into properties/array items
+    const out = Array.isArray(schema) ? [] : { ...schema };
+    if (schema.type === 'array' && schema.items) {
+      out.items = resolveSchema(schema.items, components, new Set(seen));
+    }
+    if (schema.properties) {
+      out.properties = {};
+      for (const [k, v] of Object.entries(schema.properties)) {
+        out.properties[k] = resolveSchema(v, components, new Set(seen));
+      }
+    }
+    if (schema.additionalProperties && typeof schema.additionalProperties === 'object') {
+      out.additionalProperties = resolveSchema(schema.additionalProperties, components, new Set(seen));
+    }
+    return out;
+  };
+
+  const denormalizeEndpoint = (endpoint, components) => {
+    if (!components) return endpoint;
+    const e = deepClone(endpoint);
+    // parameters -> schema
+    if (Array.isArray(e.parameters)) {
+      e.parameters = e.parameters.map((p) => {
+        const pClone = deepClone(p);
+        if (pClone.schema) pClone.schema = resolveSchema(pClone.schema, components);
+        if (pClone.content) {
+          for (const [mime, obj] of Object.entries(pClone.content)) {
+            if (obj.schema) pClone.content[mime].schema = resolveSchema(obj.schema, components);
+          }
+        }
+        return pClone;
+      });
+    }
+    // requestBody
+    if (e.requestBody && e.requestBody.content) {
+      for (const [mime, obj] of Object.entries(e.requestBody.content)) {
+        if (obj.schema) e.requestBody.content[mime].schema = resolveSchema(obj.schema, components);
+      }
+    }
+    // responses
+    if (e.responses) {
+      for (const [code, resp] of Object.entries(e.responses)) {
+        if (resp && resp.content) {
+          for (const [mime, obj] of Object.entries(resp.content)) {
+            if (obj.schema) e.responses[code].content[mime].schema = resolveSchema(obj.schema, components);
+          }
+        }
+      }
+    }
+    return e;
+  };
+
+  const denormalizeSelectedEndpointData = (selected, components) => {
+    try {
+      return selected.map((ep) => denormalizeEndpoint(ep, components));
+    } catch (err) {
+      console.warn('Denormalization failed, sending raw endpoints:', err);
+      return selected;
+    }
+  };
 
   // Helper function to get authorization status from environment
   const getAuthorizationStatus = (environmentId) => {
@@ -958,6 +1086,12 @@ const APITestGenerator = () => {
     
       console.log('Loaded endpoints:', response.data.endpoints);
       setEndpoints(response.data.endpoints || []);
+      // Capture components if backend provides them
+      if (response.data.components) {
+        setOpenApiComponents(response.data.components);
+      } else {
+        setOpenApiComponents(null);
+      }
       toast.success(`Loaded ${response.data.endpoints?.length || 0} endpoints`);
     } catch (err) {
       let errorMessage = err.message;
@@ -1037,9 +1171,10 @@ const APITestGenerator = () => {
 
     try {
       const selectedEndpointData = endpoints.filter(ep => selectedEndpoints.has(ep.id));
+      const resolvedEndpoints = denormalizeSelectedEndpointData(selectedEndpointData, openApiComponents);
       
       const response = await api.post('/api-test-generator/generate', {
-        endpoints: selectedEndpointData,
+        endpoints: resolvedEndpoints,
         testType,
         resourceName: testType === 'e2e' ? resourceName : undefined,
         environmentId: selectedEnvironment,
@@ -1259,7 +1394,7 @@ const APITestGenerator = () => {
         >
           {loading ? (
             <>
-              <FiRefreshCw style={{ animation: 'spin 1s linear infinite' }} />
+              <SpinningIcon />
               Loading Endpoints...
             </>
           ) : (

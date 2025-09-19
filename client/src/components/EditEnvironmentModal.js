@@ -279,12 +279,14 @@ const EditEnvironmentModal = ({ isOpen, onClose, environment, onUpdate }) => {
       authUrl: '',
       tokenUrl: '',
       redirectUri: '',
-      customHeaders: {}
+      customHeaders: {},
+      grantType: 'password'
     }
   });
 
   const [loading, setLoading] = useState(false);
   const [testingLLM, setTestingLLM] = useState(false);
+  const [testingOAuthToken, setTestingOAuthToken] = useState(false);
 
   useEffect(() => {
     if (isOpen && environment) {
@@ -330,7 +332,8 @@ const EditEnvironmentModal = ({ isOpen, onClose, environment, onUpdate }) => {
           authUrl: environment.authorization?.authUrl || '',
           tokenUrl: environment.authorization?.tokenUrl || '',
           redirectUri: environment.authorization?.redirectUri || '',
-          customHeaders: environment.authorization?.customHeaders || {}
+          customHeaders: environment.authorization?.customHeaders || {},
+          grantType: environment.authorization?.grantType || 'password'
         }
       });
     }
@@ -431,6 +434,55 @@ const EditEnvironmentModal = ({ isOpen, onClose, environment, onUpdate }) => {
       toast.error('Failed to test LLM connection');
     } finally {
       setTestingLLM(false);
+    }
+  };
+
+  const handleTestOAuthToken = async () => {
+    if (!formData.authorization.enabled || formData.authorization.type !== 'oauth2') {
+      toast.warning('Please enable OAuth 2.0 authorization first');
+      return;
+    }
+
+    const { clientId, clientSecret, scope, tokenUrl, grantType, username, password, authUrl, redirectUri } = formData.authorization;
+    
+    if (!clientId || !tokenUrl) {
+      toast.error('Please provide Client ID and Token URL');
+      return;
+    }
+    if ((grantType || 'password') === 'password' && (!username || !password)) {
+      toast.error('Please provide Username and Password for password grant');
+      return;
+    }
+
+    setTestingOAuthToken(true);
+    try {
+      const payload = {
+        clientId,
+        tokenUrl,
+        grantType: (grantType || 'password'),
+        scope: scope || ''
+      };
+      if (username) payload.username = username;
+      if (password) payload.password = password;
+      if (clientSecret) payload.clientSecret = clientSecret;
+
+      const response = await api.post('/environments/test-oauth-token', payload);
+
+      if (response.data.success) {
+        const token = response.data.token;
+        const tokenPreview = token.substring(0, 20) + '...';
+        // Persist in both auth token and as environment variable API_TOKEN
+        handleInputChange('authorization.token', token);
+        handleInputChange('variables.API_TOKEN', token);
+        toast.success(`${response.data.message}\nToken: ${tokenPreview}`);
+      } else {
+        toast.error(response.data.message);
+      }
+    } catch (error) {
+      console.error('Error testing OAuth token:', error);
+      toast.error('Failed to test OAuth token');
+    } finally {
+      setTestingOAuthToken(false);
     }
   };
 
@@ -769,7 +821,7 @@ const EditEnvironmentModal = ({ isOpen, onClose, environment, onUpdate }) => {
             <ToggleContainer>
               <ToggleLabel>Enable Authorization</ToggleLabel>
               <ToggleSwitch
-                isEnabled={formData.authorization.enabled}
+                active={formData.authorization.enabled}
                 onClick={() => handleInputChange('authorization.enabled', !formData.authorization.enabled)}
               />
             </ToggleContainer>
@@ -876,16 +928,48 @@ const EditEnvironmentModal = ({ isOpen, onClose, environment, onUpdate }) => {
                           type="text"
                           value={formData.authorization.scope}
                           onChange={(e) => handleInputChange('authorization.scope', e.target.value)}
-                          placeholder="read write admin"
+                          placeholder="openid"
                         />
                       </FormGroup>
+                      <FormGroup>
+                        <Label>Grant Type</Label>
+                        <Select
+                          value={formData.authorization.grantType || 'password'}
+                          onChange={(e) => handleInputChange('authorization.grantType', e.target.value)}
+                        >
+                          <option value="password">password</option>
+                          <option value="client_credentials">client_credentials</option>
+                        </Select>
+                      </FormGroup>
+                      {formData.authorization.grantType === 'password' && (
+                        <>
+                          <FormGroup>
+                            <Label>Username</Label>
+                            <Input
+                              type="text"
+                              value={formData.authorization.username}
+                              onChange={(e) => handleInputChange('authorization.username', e.target.value)}
+                              placeholder="Enter username"
+                            />
+                          </FormGroup>
+                          <FormGroup>
+                            <Label>Password</Label>
+                            <Input
+                              type="password"
+                              value={formData.authorization.password}
+                              onChange={(e) => handleInputChange('authorization.password', e.target.value)}
+                              placeholder="Enter password"
+                            />
+                          </FormGroup>
+                        </>
+                      )}
                       <FormGroup>
                         <Label>Authorization URL</Label>
                         <Input
                           type="url"
                           value={formData.authorization.authUrl}
                           onChange={(e) => handleInputChange('authorization.authUrl', e.target.value)}
-                          placeholder="https://api.example.com/oauth/authorize"
+                          placeholder="https://keycloak.../authorize"
                           style={{
                             borderColor: validationErrors['authorization.authUrl'] ? '#e74c3c' : '#d1d5db'
                           }}
@@ -900,7 +984,7 @@ const EditEnvironmentModal = ({ isOpen, onClose, environment, onUpdate }) => {
                           type="url"
                           value={formData.authorization.tokenUrl}
                           onChange={(e) => handleInputChange('authorization.tokenUrl', e.target.value)}
-                          placeholder="https://api.example.com/oauth/token"
+                          placeholder="https://keycloak.../token"
                           style={{
                             borderColor: validationErrors['authorization.tokenUrl'] ? '#e74c3c' : '#d1d5db'
                           }}
@@ -923,6 +1007,22 @@ const EditEnvironmentModal = ({ isOpen, onClose, environment, onUpdate }) => {
                         {validationErrors['authorization.redirectUri'] && (
                           <ErrorMessage>{validationErrors['authorization.redirectUri']}</ErrorMessage>
                         )}
+                      </FormGroup>
+                      <FormGroup>
+                        <Button 
+                          type="button" 
+                          className="secondary" 
+                          onClick={handleTestOAuthToken}
+                          disabled={testingOAuthToken || !formData.authorization.enabled || formData.authorization.type !== 'oauth2'}
+                          style={{
+                            width: 'fit-content',
+                            backgroundColor: testingOAuthToken ? '#d1d5db' : '#3b82f6',
+                            color: 'white',
+                            marginTop: '8px'
+                          }}
+                        >
+                          {testingOAuthToken ? 'Getting Token...' : '🔑 Get Token'}
+                        </Button>
                       </FormGroup>
                     </>
                   )}

@@ -247,7 +247,8 @@ const CreateEnvironmentModal = ({ onClose, onSubmit }) => {
       authUrl: '',
       tokenUrl: '',
       redirectUri: '',
-      customHeaders: {}
+      customHeaders: {},
+      grantType: 'password'
     }
   });
 
@@ -851,8 +852,54 @@ const CreateEnvironmentModal = ({ onClose, onSubmit }) => {
                         name="authorization.scope"
                         value={formData.authorization.scope}
                         onChange={handleInputChange}
-                        placeholder="read write admin"
+                        placeholder="openid"
                       />
+                    <FormGroup>
+                      <Label htmlFor="grantType">Grant Type</Label>
+                      <select
+                        id="grantType"
+                        name="authorization.grantType"
+                        value={formData.authorization.grantType || 'password'}
+                        onChange={handleInputChange}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          border: '1px solid #ddd',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          backgroundColor: 'white'
+                        }}
+                      >
+                        <option value="password">password</option>
+                        <option value="client_credentials">client_credentials</option>
+                      </select>
+                    </FormGroup>
+                    {formData.authorization.grantType === 'password' && (
+                      <>
+                        <FormGroup>
+                          <Label htmlFor="oauthUsername">Username</Label>
+                          <Input
+                            type="text"
+                            id="oauthUsername"
+                            name="authorization.username"
+                            value={formData.authorization.username}
+                            onChange={handleInputChange}
+                            placeholder="Enter username"
+                          />
+                        </FormGroup>
+                        <FormGroup>
+                          <Label htmlFor="oauthPassword">Password</Label>
+                          <Input
+                            type="password"
+                            id="oauthPassword"
+                            name="authorization.password"
+                            value={formData.authorization.password}
+                            onChange={handleInputChange}
+                            placeholder="Enter password"
+                          />
+                        </FormGroup>
+                      </>
+                    )}
                     </FormGroup>
                     <FormGroup>
                       <Label htmlFor="authUrl">Authorization URL</Label>
@@ -862,7 +909,7 @@ const CreateEnvironmentModal = ({ onClose, onSubmit }) => {
                         name="authorization.authUrl"
                         value={formData.authorization.authUrl}
                         onChange={handleInputChange}
-                        placeholder="https://api.example.com/oauth/authorize"
+                        placeholder="https://keycloak.../authorize"
                         style={{
                           borderColor: validationErrors['authorization.authUrl'] ? '#e74c3c' : '#ddd'
                         }}
@@ -879,7 +926,7 @@ const CreateEnvironmentModal = ({ onClose, onSubmit }) => {
                         name="authorization.tokenUrl"
                         value={formData.authorization.tokenUrl}
                         onChange={handleInputChange}
-                        placeholder="https://api.example.com/oauth/token"
+                        placeholder="https://keycloak.../token"
                         style={{
                           borderColor: validationErrors['authorization.tokenUrl'] ? '#e74c3c' : '#ddd'
                         }}

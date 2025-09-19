@@ -95,9 +95,9 @@ router.get('/endpoints/environment/:environmentId', async (req, res) => {
     }
 
     // Fetch endpoints from the environment's swagger URL
-    const endpoints = await fetchEndpointsFromSwagger(swaggerUrl);
+    const { endpoints, components } = await fetchEndpointsFromSwagger(swaggerUrl);
     
-    res.json({ endpoints });
+    res.json({ endpoints, components });
   } catch (error) {
     console.error('Error loading endpoints from environment:', error);
     res.status(500).json({ error: 'Failed to load endpoints from environment' });
@@ -113,9 +113,9 @@ router.post('/endpoints/swagger', async (req, res) => {
       return res.status(400).json({ error: 'Swagger URL is required' });
     }
 
-    const endpoints = await fetchEndpointsFromSwagger(swaggerUrl);
+    const { endpoints, components } = await fetchEndpointsFromSwagger(swaggerUrl);
     
-    res.json({ endpoints });
+    res.json({ endpoints, components });
   } catch (error) {
     console.error('Error loading endpoints from Swagger URL:', error);
     res.status(500).json({ error: 'Failed to load endpoints from Swagger URL' });
@@ -140,7 +140,7 @@ router.post('/endpoints/upload', upload.single('file'), async (req, res) => {
 
     const endpoints = parseSwaggerSpec(swaggerSpec);
     
-    res.json({ endpoints });
+    res.json({ endpoints, components: swaggerSpec.components || null });
   } catch (error) {
     console.error('Error processing uploaded file:', error);
     res.status(500).json({ error: 'Failed to process uploaded file' });
@@ -244,7 +244,8 @@ async function fetchEndpointsFromSwagger(swaggerUrl) {
       }
     });
     
-    return parseSwaggerSpec(response.data);
+    const swaggerSpec = response.data;
+    return { endpoints: parseSwaggerSpec(swaggerSpec), components: swaggerSpec.components || null };
   } catch (error) {
     throw new Error(`Failed to fetch Swagger spec: ${error.message}`);
   }
@@ -269,7 +270,8 @@ function parseSwaggerSpec(swaggerSpec) {
           description: operation.description || '',
           tags: operation.tags || [],
           parameters: operation.parameters || [],
-          responses: operation.responses || {}
+          responses: operation.responses || {},
+          requestBody: operation.requestBody || null
         };
         
         endpoints.push(endpoint);
@@ -278,6 +280,64 @@ function parseSwaggerSpec(swaggerSpec) {
   });
 
   return endpoints;
+}
+
+// ---------------- OpenAPI helpers for requestBody sampling ----------------
+function pickEnumOrDefault(values) {
+  return Array.isArray(values) && values.length ? values[0] : undefined;
+}
+
+function buildSampleFromSchema(schema, depth = 0) {
+  if (!schema || depth > 10) return null;
+  if (schema.example !== undefined) return schema.example;
+  if (schema.default !== undefined) return schema.default;
+  if (schema.enum) return pickEnumOrDefault(schema.enum);
+
+  const type = schema.type || (schema.properties ? 'object' : (schema.items ? 'array' : 'string'));
+  switch (type) {
+    case 'string':
+      if (schema.format === 'date-time') return new Date().toISOString();
+      if (schema.format === 'date') return new Date().toISOString().substring(0, 10);
+      if (schema.format === 'uuid') return '00000000-0000-0000-0000-000000000000';
+      if (schema.format === 'email') return 'user@example.com';
+      return 'string';
+    case 'integer':
+    case 'number':
+      return 0;
+    case 'boolean':
+      return true;
+    case 'array':
+      return [buildSampleFromSchema(schema.items || {}, depth + 1)];
+    case 'object': {
+      const obj = {};
+      const props = schema.properties || {};
+      for (const key of Object.keys(props)) {
+        obj[key] = buildSampleFromSchema(props[key], depth + 1);
+      }
+      if (schema.additionalProperties && typeof schema.additionalProperties === 'object') {
+        obj['additionalProp1'] = buildSampleFromSchema(schema.additionalProperties, depth + 1);
+      }
+      return obj;
+    }
+    default:
+      return null;
+  }
+}
+
+function getJsonRequestBodySchema(endpoint) {
+  const rb = endpoint?.requestBody?.content;
+  if (!rb || typeof rb !== 'object') return null;
+  const jsonKeys = Object.keys(rb).filter(k => k.toLowerCase().includes('application/json'));
+  for (const key of jsonKeys) {
+    const sch = rb[key]?.schema;
+    if (sch) return sch;
+  }
+  // fallback: first content entry with schema
+  for (const key of Object.keys(rb)) {
+    const sch = rb[key]?.schema;
+    if (sch) return sch;
+  }
+  return null;
 }
 
 // Helper function to generate individual API test
@@ -300,72 +360,34 @@ test.describe('${testName}', () => {
     const { request } = await import('@playwright/test');
     requestContext = await request.newContext({
       baseURL: '${baseUrl}',
-      extraHTTPHeaders: ${JSON.stringify(authHeaders, null, 8)},
+      extraHTTPHeaders: ${JSON.stringify(authHeaders)},
       timeout: ${timeout}
     });
   });
 
   test.afterAll(async () => {
-    if (requestContext) {
-      await requestContext.dispose();
-    }
+    await requestContext.dispose();
   });
 
-  test('should ${endpoint.summary || `handle ${endpoint.method} request`}', async () => {
-    await allure.epic('API Testing');
-    await allure.feature('${endpoint.method} ${endpointPath}');
-    await allure.story('${endpointPath}');
-    await allure.description('${endpoint.description || endpoint.summary || `Test ${endpoint.method} ${endpointPath}`}');
-    ${(endpoint.tags || []).map(tag => `await allure.tag('${tag}');`).join('\n    ')}
-    
-    // Prepare request details
-    const requestDetails = {
-      method: '${endpoint.method}',
-      url: '${baseUrl}${endpointPath}',
-      headers: ${JSON.stringify(authHeaders, null, 8)},
-      timestamp: new Date().toISOString()
+  test('${testName} - should return ${expectedStatus}', async () => {
+    // Build sample request body if applicable from OpenAPI schema
+    ${(['POST','PUT','PATCH'].includes((endpoint.method || '').toUpperCase()) && getJsonRequestBodySchema(endpoint)) ? `const sampleBody = ${JSON.stringify(buildSampleFromSchema(getJsonRequestBodySchema(endpoint)), null, 2)};` : ''}
+
+    const requestOptions = {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        ...${JSON.stringify(authHeaders)}
+      }${(['POST','PUT','PATCH'].includes((endpoint.method || '').toUpperCase())) ? `,
+      data: ${getJsonRequestBodySchema(endpoint) ? 'sampleBody' : '{ /* TODO: fill body */ }'}` : ''}
     };
-    
-    await allure.step('Request Details', async () => {
-      await allure.attachment('Request Method', requestDetails.method, 'text/plain');
-      await allure.attachment('Request URL', requestDetails.url, 'text/plain');
-      await allure.attachment('Request Headers', JSON.stringify(requestDetails.headers, null, 2), 'application/json');
-      await allure.attachment('Request Timestamp', requestDetails.timestamp, 'text/plain');
-    });
-    
-    const startTime = Date.now();
-    const response = await requestContext.${endpoint.method.toLowerCase()}('${endpointPath}', {
-      headers: requestDetails.headers
-    });
-    const endTime = Date.now();
-    const responseTime = endTime - startTime;
-    
-    await allure.step('Response Details', async () => {
-      await allure.attachment('Response Status', response.status().toString(), 'text/plain');
-      await allure.attachment('Response Headers', JSON.stringify(response.headers(), null, 2), 'application/json');
-      await allure.attachment('Response Time', \`\${responseTime}ms\`, 'text/plain');
-      
-      if (response.status() >= 200 && response.status() < 300) {
-        const contentType = response.headers()['content-type'];
-        if (contentType && contentType.includes('application/json')) {
-          const data = await response.json();
-          await allure.attachment('Response Body', JSON.stringify(data, null, 2), 'application/json');
-          expect(data).toBeDefined();
-        } else {
-          const textData = await response.text();
-          await allure.attachment('Response Body (Text)', textData, 'text/plain');
-        }
-      } else {
-        const errorData = await response.text();
-        await allure.attachment('Error Response', errorData, 'text/plain');
-      }
-    });
-    
-    // Accept multiple valid status codes for fake API compatibility
-    expect([200, 201, 400, 404]).toContain(response.status());
-    
-    // Performance assertion
-    expect(responseTime).toBeLessThan(5000);
+
+    const response = await requestContext.${(endpoint.method || 'GET').toLowerCase()}('${endpointPath}', requestOptions);
+    await expect(response.status()).toBe(${expectedStatus});
+
+    const responseBody = await response.json().catch(() => null);
+    await allure.attachment('Response Status', String(response.status()), 'text/plain');
+    await allure.attachment('Response Body', JSON.stringify(responseBody, null, 2), 'application/json');
   });
 });
 `;
@@ -891,19 +913,21 @@ async function generateLLMAPITest(endpoint, environment, variation = 'happy-path
   const llmService = new LLMService();
   const baseUrl = environment?.variables?.API_URL || environment?.variables?.BASE_URL || 'https://fakerestapi.azurewebsites.net';
   const timeout = environment?.variables?.TIMEOUT || 30000;
-  
+  console.log('===========>endpoint:', endpoint)
   // Create enhanced prompt with schema analysis and test variations
   const prompt = createEnhancedAPITestPrompt(endpoint, variation, baseUrl, environment);
   console.log('Generated enhanced prompt length:', prompt.length);
   
   try {
     console.log('Calling LLMService.generateCode...');
+    console.log('===========>Prompt:', prompt);
     const generatedCode = await llmService.generateCode(prompt, environment, {
       testType: 'api',
       variation: variation
     });
     
     console.log('LLM generation successful, code length:', generatedCode.length);
+    console.log('===========>generatedCode:', generatedCode);
     return postProcessAPITestCode(generatedCode, endpoint, variation, timeout, environment);
   } catch (error) {
     console.error('Error generating LLM API test:', error.message);
@@ -947,7 +971,7 @@ async function generateLLME2EAPITestSuite(endpoints, resourceName, environment) 
   }
 }
 
-function createEnhancedAPITestPrompt(endpoint, variation, baseUrl, environment) {
+function createEnhancedAPITestPrompt2(endpoint, variation, baseUrl, environment) {
   const apiUrl = baseUrl || environment?.variables?.API_URL || environment?.variables?.BASE_URL || 'https://fakerestapi.azurewebsites.net';
   const testVariations = environment?.variables?.TEST_VARIATIONS || ['happy-path', 'negative', 'edge-case', 'boundary', 'security'];
   const authHeaders = buildAuthorizationHeaders(environment);
@@ -1091,6 +1115,156 @@ IMPORTANT: Ensure all TypeScript types are properly declared to avoid compilatio
 Focus on the **${variation}** variation as the primary test case, but include elements from other variations where relevant.`;
 
 }
+function createEnhancedAPITestPrompt(endpoint, variation, baseUrl, environment) {
+  const apiUrl = baseUrl || environment?.variables?.API_URL || environment?.variables?.BASE_URL;
+  const testVariations = environment?.variables?.TEST_VARIATIONS || ['happy-path', 'negative', 'edge-case', 'boundary', 'security'];
+  const authHeaders = buildAuthorizationHeaders(environment);
+
+  const method = endpoint.method?.toUpperCase?.() || 'GET';
+  const path = endpoint.path || endpoint.url || '/unknown';
+  const summary = endpoint.summary || `${method} ${path}`;
+  const description = endpoint.description || 'Test API endpoint functionality';
+
+  const pathParams = (endpoint.parameters || []).filter(p => p.in === 'path');
+  const queryParams = (endpoint.parameters || []).filter(p => p.in === 'query');
+  const headerParams = (endpoint.parameters || []).filter(p => p.in === 'header');
+
+  const stringifyParams = (params) => {
+    if (!params.length) return 'None';
+    return params.map(param => {
+      return `- **${param.name}** (${param.in}) ${param.required ? '(required)' : '(optional)'}: ${param.schema?.type || 'unknown'}${param.schema?.default !== undefined ? ` (default: ${JSON.stringify(param.schema.default)})` : ''}`;
+    }).join('\n');
+  };
+
+  const authInfo = environment?.authorization?.enabled
+    ? `\n- **Authorization**: ${environment.authorization.type} (enabled)`
+    : '\n- **Authorization**: None';
+
+  return `You are an expert API testing engineer. Generate a comprehensive Playwright API test for the following endpoint using advanced schema analysis and test variation techniques.
+
+---
+
+## 🧩 API Endpoint Overview
+
+- **Method**: ${method}
+- **Path**: \`${path}\`
+- **Base URL**: ${apiUrl}
+- **Test Focus**: ${variation}
+- **Summary**: ${summary}
+- **Description**: ${description}${authInfo}
+
+---
+
+## 📥 Input Parameters
+
+### 🧷 Path Parameters
+${stringifyParams(pathParams)}
+
+### 🔍 Query Parameters
+${stringifyParams(queryParams)}
+
+### 📨 Header Parameters
+${stringifyParams(headerParams)}
+
+---
+
+## 🔬 Schema Analysis Requirements
+
+### 1. **Request Schema Analysis**
+- Analyze expected request structure from parameters (path, query, headers)
+- Identify required vs optional fields
+- Determine data types, default values, and validation rules
+- Identify edge cases and boundary values
+
+### 2. **Response Schema Analysis**
+- Analyze expected response structure, including success and error formats
+- Identify relevant HTTP status codes and their meanings
+- Validate response headers (e.g., \`content-type\`)
+
+---
+
+## 🧪 Test Variation: **${variation}**
+
+Define **${variation}** as the primary test focus. Use other test variations from the following list for secondary tests:
+
+${testVariations.map(v => `- ${v === variation ? `✅ **${v.toUpperCase()} (PRIMARY)**` : `⚪ ${v.toUpperCase()} (SECONDARY)`}`).join('\n')}
+
+---
+
+## ✅ Test Implementation Requirements
+
+### 1. **Test Structure (Playwright + Allure)**
+\`\`\`typescript
+import { test, expect, APIRequestContext, APIResponse } from '@playwright/test';
+import { allure } from 'allure-playwright';
+
+test.describe('${method} ${path} - ${variation}', () => {
+  let requestContext: APIRequestContext;
+
+  test.beforeAll(async () => {
+    const { request } = await import('@playwright/test');
+    requestContext = await request.newContext({
+      baseURL: '${apiUrl}',
+      extraHTTPHeaders: ${JSON.stringify(authHeaders, null, 2)},
+      timeout: 30000,
+    });
+  });
+
+  test.afterAll(async () => {
+    await requestContext.dispose();
+  });
+
+  // Implement tests here
+});
+\`\`\`
+
+---
+
+### 2. **Schema-Based Test Cases**
+- Generate valid and invalid test data covering:
+  - Required and optional query, path, and header parameters
+  - Edge cases (long strings, nulls, special characters)
+  - Security test payloads (e.g., SQL injection, XSS)
+  - Performance edge cases (large values, concurrency)
+
+---
+
+### 3. **Code Quality and Typing**
+- Use strict TypeScript typings:
+  - e.g., \`const response: APIResponse = await ...\`
+  - Catch errors with \`catch (error: unknown)\`
+- Employ type guards for error handling
+- Avoid variable redeclaration
+- Follow strict TypeScript best practices
+
+---
+
+### 4. **Advanced Reporting**
+- Utilize Allure for detailed test reporting
+- Include request and response logging
+- Validate response headers and schema compliance
+- Log discrepancies and malformed data
+
+---
+
+### 5. **Environment Configuration Support**
+- Use base URL from \`API_URL\` environment variable or fallback to passed \`baseUrl\`
+- Support optional headers from environment config (e.g., \`X-Space\`)
+- Handle request timeouts, retries, and multiple environments gracefully
+
+---
+
+🔧 **Final Instructions:**
+- Deliver a robust, reusable, production-ready Playwright API test
+- Prioritize the **${variation}** scenario
+- Ensure extensibility for all test types over time
+- Maintain excellent code structure, documentation, and typing discipline
+
+Generate the complete, typed Playwright API test code implementing the above.
+`;
+}
+
+
 
 function createAPITestPrompt(endpoint, variation, baseUrl) {
   const variationPrompts = {
@@ -1563,6 +1737,51 @@ function postProcessAPITestCode(generatedCode, endpoint, variation, timeout, env
     await allure.tag('${variation}');`
     );
   }
+  
+  // If endpoint contains a JSON requestBody schema, ensure only required keys are used in generated sample
+  try {
+    const rb = endpoint?.requestBody?.content;
+    if (rb) {
+      const jsonKey = Object.keys(rb).find(k => k.toLowerCase().includes('application/json')) || Object.keys(rb)[0];
+      const schema = jsonKey ? rb[jsonKey]?.schema : null;
+      const required = Array.isArray(schema?.required) ? schema.required : [];
+      if (required.length > 0) {
+        // Replace any inferred interface/object literals to only include required keys if we can locate them
+        // Heuristic: if code declares a variable named similar to sampleBody or request payload, filter properties to required
+        processedCode = processedCode.replace(/const\s+(sampleBody|requestBody|payload)\s*=\s*\{([\s\S]*?)\};/g, (m, name, body) => {
+          const obj = {};
+          // naive parse of top-level key: value pairs
+          required.forEach(key => {
+            const re = new RegExp(`\\b${key}\\s*:\\s*([\\s\\S]*?)(,|\n|$)`);
+            const match = body.match(re);
+            if (match) obj[key] = match[1].trim();
+          });
+          const rebuilt = Object.keys(obj).map(k => `  ${k}: ${obj[k]}`).join(',\n');
+          return `const ${name} = {\n${rebuilt}\n};`;
+        });
+      }
+    }
+  } catch (e) {
+    // best-effort; ignore errors
+  }
+  
+  // Fix bad console.error ternary usage: avoid calling the ternary result as a function
+  processedCode = processedCode.replace(
+    /console\.error instanceof Error \? error\.message : String\(error\)\('([^']+)',\s*(error instanceof Error \? error\.message : String\(error\))\);/g,
+    (m, msg, errExpr) => `console.error('${msg}', ${errExpr});`
+  );
+  
+  // Ensure createdProjectId is cast to string when assigned
+  processedCode = processedCode.replace(
+    /createdProjectId\s*=\s*responseData\.id;/g,
+    "createdProjectId = String((responseData as any).id || '');"
+  );
+  
+  // Update deprecated faker API usage
+  processedCode = processedCode.replace(
+    /faker\.company\.companyName\(\)/g,
+    'faker.company.name()'
+  );
   
   return processedCode;
 }

@@ -65,3 +65,6 @@ pids
 *.pid
 *.seed
 *.pid.lock
+# Ignore local Playwright browsers and client build
+server/.playwright-browsers/
+client/build/

@@ -68,3 +68,4 @@ pids
 # Ignore local Playwright browsers and client build
 server/.playwright-browsers/
 client/build/
+local-browsers/

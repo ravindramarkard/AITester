@@ -7,6 +7,24 @@ const glob = require('glob');
 
 // Load environment variables
 dotenv.config();
+// Also try loading root .env if present
+try {
+  const rootEnvPath = path.join(__dirname, '..', '.env');
+  if (fs.existsSync(rootEnvPath)) {
+    require('dotenv').config({ path: rootEnvPath });
+  }
+} catch (_) {}
+
+// Ensure browsers path is set for all Playwright usages
+const projectRoot = path.join(__dirname, '..');
+let browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
+if (!browsersPath) {
+  browsersPath = path.join(projectRoot, '.local-browsers');
+} else if (!path.isAbsolute(browsersPath)) {
+  browsersPath = path.resolve(projectRoot, browsersPath);
+}
+process.env.PLAYWRIGHT_BROWSERS_PATH = browsersPath;
+console.log('PLAYWRIGHT_BROWSERS_PATH:', process.env.PLAYWRIGHT_BROWSERS_PATH);
 
 // Import routes
 const promptRoutes = require('./routes/prompts');
@@ -389,10 +407,18 @@ app.post('/api/test-suites', (req, res) => {
   }
 });
 
-// Serve React app for all non-API routes
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+// Serve favicon in dev to avoid proxy errors
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
 });
+
+// Serve React app for all non-API routes (only when build exists)
+const buildIndexPath = path.join(__dirname, '../client/build', 'index.html');
+if (process.env.NODE_ENV === 'production' || require('fs').existsSync(buildIndexPath)) {
+  app.get('*', (req, res) => {
+    res.sendFile(buildIndexPath);
+  });
+}
 
 // Error handling middleware
 app.use((err, req, res, next) => {

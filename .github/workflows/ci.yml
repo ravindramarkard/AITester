@@ -39,7 +39,9 @@ jobs:
         npm ci
     
     - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
+      run: npx playwright install --with-deps chromium ffmpeg
+      env:
+        PLAYWRIGHT_BROWSERS_PATH: ./.local-browsers
     
     - name: Build client
       run: |
@@ -58,6 +60,7 @@ jobs:
       run: npx playwright test
       env:
         CI: true
+        PLAYWRIGHT_BROWSERS_PATH: ./.local-browsers
     
     - name: Upload Playwright Report
       uses: actions/upload-artifact@v4

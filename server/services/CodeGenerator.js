@@ -776,6 +776,12 @@ async function handleTestCleanup(page, testInfo) {
 
   async saveTestFile(content, filePath) {
     await fs.ensureDir(path.dirname(filePath));
+    // Remove unsupported Playwright chaining like .tags('smoke', 'ui') that causes runtime errors
+    if (typeof content === 'string') {
+      try {
+        content = content.replace(/\)\.tags\(([^)]*)\);/g, ');');
+      } catch (_) {}
+    }
     await fs.writeFile(filePath, content, 'utf8');
     return filePath;
   }

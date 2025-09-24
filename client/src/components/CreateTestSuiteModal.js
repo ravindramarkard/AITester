@@ -413,7 +413,7 @@ const CreateTestSuiteModal = ({
   const [selectedAvailableTests, setSelectedAvailableTests] = useState([]);
   const [selectedSuiteTests, setSelectedSuiteTests] = useState([]);
 
-  const fetchTests = useCallback(async () => {
+  const fetchTestsForType = async (type) => {
     setLoading(true);
     try {
       const response = await api.get('/test-files?type=all');
@@ -421,7 +421,7 @@ const CreateTestSuiteModal = ({
         const allTestsData = response.data.tests || [];
         const filteredTests = allTestsData.filter(test => {
           const testTypeLower = (test.type || '').toLowerCase();
-          const formTestTypeLower = (formData.testType || '').toLowerCase();
+          const formTestTypeLower = (type || '').toLowerCase();
           
           // Handle different test type formats
           if (formTestTypeLower.includes('ui')) {
@@ -436,16 +436,13 @@ const CreateTestSuiteModal = ({
         
         // Store all filtered tests for refiltering
         setAllTests(filteredTests);
-        
-        // The refilterAvailableTests will be called automatically via useEffect
-        // after allTests is updated
       }
     } catch (error) {
       console.error('Error fetching tests:', error);
     } finally {
       setLoading(false);
     }
-  }, [formData.testType]);
+  };
 
   const refilterAvailableTests = useCallback(() => {
     if (allTests.length === 0) {
@@ -475,15 +472,16 @@ const CreateTestSuiteModal = ({
       setAvailableTests([]);
       setSelectedAvailableTests([]);
       setSelectedSuiteTests([]);
-      fetchTests();
+      // Fetch for default type once on open
+      fetchTestsForType('UI');
     }
-  }, [isOpen, fetchTests]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (formData.testType) {
-      fetchTests();
+      fetchTestsForType(formData.testType);
     }
-  }, [formData.testType, fetchTests]);
+  }, [formData.testType]);
 
   // Separate useEffect to refilter when selectedTests changes
   useEffect(() => {
@@ -685,30 +683,30 @@ const CreateTestSuiteModal = ({
 
             <ButtonPanel>
               <ArrowButton
-                onClick={moveAllFromSuite}
-                disabled={selectedTests.length === 0}
-                title="Move all from suite"
+                onClick={moveAllToSuite}
+                disabled={availableTests.length === 0}
+                title="Move all to suite"
               >
                 ≪
-              </ArrowButton>
-              <ArrowButton
-                onClick={moveSelectedFromSuite}
-                disabled={selectedSuiteTests.length === 0}
-                title="Move selected from suite"
-              >
-                &lt;
               </ArrowButton>
               <ArrowButton
                 onClick={moveSelectedToSuite}
                 disabled={selectedAvailableTests.length === 0}
                 title="Move selected to suite"
               >
+                &lt;
+              </ArrowButton>
+              <ArrowButton
+                onClick={moveSelectedFromSuite}
+                disabled={selectedSuiteTests.length === 0}
+                title="Move selected from suite"
+              >
                 &gt;
               </ArrowButton>
               <ArrowButton
-                onClick={moveAllToSuite}
-                disabled={availableTests.length === 0}
-                title="Move all to suite"
+                onClick={moveAllFromSuite}
+                disabled={selectedTests.length === 0}
+                title="Move all from suite"
               >
                 ≫
               </ArrowButton>

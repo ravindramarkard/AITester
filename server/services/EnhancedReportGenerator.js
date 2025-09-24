@@ -193,13 +193,8 @@ class EnhancedReportGenerator {
         console.log('⚠️ Could not clean Playwright report directory:', error.message);
       }
       
-      // Clean Allure results directory
-      try {
-        await fs.rm(this.allureResultsDir, { recursive: true, force: true });
-        console.log('✅ Cleaned Allure results directory');
-      } catch (error) {
-        console.log('⚠️ Could not clean Allure results directory:', error.message);
-      }
+      // Preserve allure-results so we can generate real Allure report from latest test run
+      console.log('ℹ️ Preserving allure-results directory to generate real Allure report');
       
       return {
         success: true,

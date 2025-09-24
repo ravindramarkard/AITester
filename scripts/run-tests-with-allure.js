@@ -33,9 +33,10 @@ class TestRunnerWithAllure {
     console.log('🚀 Starting Playwright tests with auto-Allure generation...');
     
     return new Promise((resolve, reject) => {
-      const testCommand = spawn('npx', ['playwright', 'test', '--reporter=list,allure-playwright', ...args], {
+      const testCommand = spawn('npx', ['playwright', 'test', ...args], {
         cwd: this.projectRoot,
-        stdio: 'inherit'
+        stdio: 'inherit',
+        env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(this.projectRoot, '.local-browsers') }
       });
 
       testCommand.on('close', (code) => {

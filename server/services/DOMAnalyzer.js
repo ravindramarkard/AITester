@@ -1,17 +1,33 @@
 const { chromium } = require('playwright');
 const axios = require('axios');
+const path = require('path');
 
 class DOMAnalyzer {
   constructor() {
     this.browser = null;
     this.page = null;
+    this.selectorCache = new Map();
   }
 
   async initialize() {
     if (!this.browser) {
+      // Ensure Playwright uses the local browsers cache
+      try {
+        const projectRoot = path.join(__dirname, '../..');
+        let browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(projectRoot, '.local-browsers');
+        if (!path.isAbsolute(browsersPath)) browsersPath = path.resolve(projectRoot, browsersPath);
+        process.env.PLAYWRIGHT_BROWSERS_PATH = browsersPath;
+        console.log('DOMAnalyzer using PLAYWRIGHT_BROWSERS_PATH:', process.env.PLAYWRIGHT_BROWSERS_PATH);
+      } catch (_) {}
+
       const headless = process.env.HEADLESS === 'false' ? false : true;
-      this.browser = await chromium.launch({ headless });
-      this.page = await this.browser.newPage();
+      try {
+        this.browser = await chromium.launch({ headless });
+        this.page = await this.browser.newPage();
+      } catch (e) {
+        console.error('DOMAnalyzer: failed to launch Chromium:', e.message);
+        throw e;
+      }
     }
   }
 
@@ -81,47 +97,23 @@ class DOMAnalyzer {
           
         case 'click':
           if (target) {
-            // Try different selector strategies
-            const selectors = this.generateSelectors(target);
-            for (const selector of selectors) {
-              try {
-                await this.page.click(selector, { timeout: 2000 });
-                await this.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
-                return this.page.url();
-              } catch (err) {
-                console.log(`Selector ${selector} failed: ${err.message}`);
-              }
-            }
+            const acted = await this.resolveAndAct('click', target, value, timeout);
+            if (acted) return this.page.url();
           }
           break;
           
         case 'fill':
         case 'type':
           if (target && value) {
-            const selectors = this.generateSelectors(target);
-            for (const selector of selectors) {
-              try {
-                await this.page.fill(selector, value, { timeout: 2000 });
-                return this.page.url();
-              } catch (err) {
-                console.log(`Fill selector ${selector} failed: ${err.message}`);
-              }
-            }
+            const acted = await this.resolveAndAct('fill', target, value, timeout);
+            if (acted) return this.page.url();
           }
           break;
           
         case 'select':
           if (target && value) {
-            const selectors = this.generateSelectors(target);
-            for (const selector of selectors) {
-              try {
-                await this.page.selectOption(selector, value, { timeout: 2000 });
-                await this.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
-                return this.page.url();
-              } catch (err) {
-                console.log(`Select selector ${selector} failed: ${err.message}`);
-              }
-            }
+            const acted = await this.resolveAndAct('select', target, value, timeout);
+            if (acted) return this.page.url();
           }
           break;
       }
@@ -134,6 +126,94 @@ class DOMAnalyzer {
       console.warn(`Step execution failed: ${error.message}`);
       return this.page.url();
     }
+  }
+
+  // Self-healing: generate candidates, score, and perform action
+  async resolveAndAct(kind, rawTarget, value, timeout = 3000) {
+    const cacheKey = `${kind}|${rawTarget}`;
+    const cached = this.selectorCache.get(cacheKey);
+    if (cached) {
+      try {
+        await this.perform(kind, cached, value, timeout);
+        return true;
+      } catch (_) {}
+    }
+    const candidates = this.generateSelectorCandidates(rawTarget);
+    const scored = await this.scoreCandidates(candidates);
+    for (const { selector } of scored) {
+      try {
+        await this.perform(kind, selector, value, timeout);
+        this.selectorCache.set(cacheKey, selector);
+        return true;
+      } catch (err) {
+        console.log(`[heal] ${kind} failed for ${selector}: ${err.message}`);
+      }
+    }
+    return false;
+  }
+
+  async perform(kind, selector, value, timeout) {
+    if (kind === 'click') {
+      await this.page.click(selector, { timeout });
+      await this.page.waitForLoadState('networkidle', { timeout: Math.min(timeout, 3000) }).catch(() => {});
+    } else if (kind === 'fill') {
+      await this.page.fill(selector, value, { timeout });
+    } else if (kind === 'select') {
+      await this.page.selectOption(selector, value, { timeout });
+      await this.page.waitForLoadState('networkidle', { timeout: Math.min(timeout, 3000) }).catch(() => {});
+    }
+  }
+
+  generateSelectorCandidates(target) {
+    const normalized = String(target).toLowerCase();
+    const out = new Set();
+    // Base strategies from generateSelectors
+    this.generateSelectors(normalized).forEach(s => out.add(s));
+    // Heuristics: role and placeholder
+    out.add(`getByRole=button:${target}`);
+    out.add(`getByRole=textbox:${target}`);
+    out.add(`css=[placeholder*="${target}" i]`);
+    out.add(`text=${target}`);
+    return Array.from(out);
+  }
+
+  async scoreCandidates(candidates) {
+    const scored = [];
+    for (const cand of candidates) {
+      let selector = cand;
+      let score = 0;
+      try {
+        // Support pseudo getBy* shortcuts
+        if (cand.startsWith('getByRole=')) {
+          const [_, rest] = cand.split('=');
+          const [role, name] = rest.split(':');
+          const loc = this.page.getByRole(role, { name: new RegExp(name, 'i') });
+          const count = await loc.count();
+          selector = loc;
+          score = count > 0 ? 100 - Math.min(count - 1, 90) : 0;
+        } else if (cand.startsWith('css=')) {
+          const css = cand.slice(4);
+          const count = await this.page.locator(css).count();
+          selector = css;
+          score = count > 0 ? 80 - Math.min(count - 1, 70) : 0;
+        } else if (cand.startsWith('text=')) {
+          const text = cand.slice(5);
+          const loc = this.page.getByText(new RegExp(text, 'i'));
+          const count = await loc.count();
+          selector = loc;
+          score = count > 0 ? 60 - Math.min(count - 1, 50) : 0;
+        } else {
+          const count = await this.page.locator(cand).count();
+          selector = cand;
+          score = count > 0 ? 70 - Math.min(count - 1, 60) : 0;
+        }
+      } catch (_) {
+        score = 0;
+      }
+      if (score > 0) scored.push({ selector, score });
+    }
+    scored.sort((a, b) => b.score - a.score);
+    return scored;
   }
 
   generateSelectors(target) {

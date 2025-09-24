@@ -150,7 +150,7 @@ router.post('/endpoints/upload', upload.single('file'), async (req, res) => {
 // Generate API tests
 router.post('/generate', async (req, res) => {
   try {
-    const { endpoints, testType, resourceName, environmentId, useLLM = false, testVariations = ['happy-path'] } = req.body;
+    const { endpoints, testType, resourceName, environmentId, useLLM = false, testVariations = ['happy-path'], components = null } = req.body;
     
     if (!endpoints || !Array.isArray(endpoints) || endpoints.length === 0) {
       return res.status(400).json({ error: 'At least one endpoint is required' });
@@ -195,7 +195,7 @@ router.post('/generate', async (req, res) => {
           // Generate standard test
           const endpointPath = endpoint.path || endpoint.url || '/unknown';
           const fileName = `${endpoint.method.toLowerCase()}-${endpointPath.replace(/[^a-zA-Z0-9]/g, '-')}.spec.ts`;
-          const code = generateIndividualAPITest(endpoint, environment);
+          const code = generateIndividualAPITest(endpoint, environment, components);
           
           // Save the test file
           const filePath = await saveTestFile(fileName, code, 'api-tests');
@@ -213,7 +213,7 @@ router.post('/generate', async (req, res) => {
       if (useLLM) {
         code = await generateLLME2EAPITestSuite(endpoints, resourceName, environment);
       } else {
-        code = generateE2EAPITestSuite(endpoints, resourceName, environment);
+        code = generateE2EAPITestSuite(endpoints, resourceName, environment, components);
       }
       
       // Save the test file
@@ -287,6 +287,130 @@ function pickEnumOrDefault(values) {
   return Array.isArray(values) && values.length ? values[0] : undefined;
 }
 
+// Resolve a $ref like "#/components/schemas/Name" against provided components
+function resolveRefSchema(ref, components) {
+  if (!ref || typeof ref !== 'string' || !components) return null;
+  const parts = ref.split('/');
+  // Expecting ['#', 'components', 'schemas', 'Name']
+  const name = parts[parts.length - 1];
+  const target = components.schemas && components.schemas[name];
+  return target || null;
+}
+
+function deepClone(obj) {
+  return obj ? JSON.parse(JSON.stringify(obj)) : obj;
+}
+
+function mergeObjectSchemas(base, ext) {
+  const merged = { type: 'object', properties: {}, required: [] };
+  const baseProps = (base && base.properties) || {};
+  const extProps = (ext && ext.properties) || {};
+  merged.properties = { ...baseProps, ...extProps };
+  const baseReq = Array.isArray(base && base.required) ? base.required : [];
+  const extReq = Array.isArray(ext && ext.required) ? ext.required : [];
+  merged.required = Array.from(new Set([ ...baseReq, ...extReq ]));
+  // Preserve additionalProperties if any explicitly set to object schema
+  if (base && base.additionalProperties !== undefined) merged.additionalProperties = base.additionalProperties;
+  if (ext && ext.additionalProperties !== undefined) merged.additionalProperties = ext.additionalProperties;
+  return merged;
+}
+
+// Recursively resolve schema: $ref, allOf, oneOf, anyOf
+function resolveSchema(schema, components, seen = new Set()) {
+  if (!schema) return null;
+  if (schema.$ref) {
+    if (seen.has(schema.$ref)) return null; // prevent cycles
+    seen.add(schema.$ref);
+    const resolved = resolveRefSchema(schema.$ref, components);
+    if (!resolved) return null;
+    return resolveSchema(resolved, components, seen);
+  }
+
+  // Handle allOf (merge all as object)
+  if (Array.isArray(schema.allOf) && schema.allOf.length) {
+    let acc = { type: 'object', properties: {}, required: [] };
+    for (const part of schema.allOf) {
+      const resolvedPart = resolveSchema(part, components, seen) || part;
+      if ((resolvedPart && (resolvedPart.properties || resolvedPart.type === 'object')) || resolvedPart?.allOf) {
+        acc = mergeObjectSchemas(acc, resolvedPart);
+      } else {
+        // If not an object schema, keep last non-object part for type hints
+        acc = { ...resolvedPart, ...acc };
+      }
+    }
+    return acc;
+  }
+
+  // Prefer first oneOf/anyOf branch for sampling
+  if (Array.isArray(schema.oneOf) && schema.oneOf.length) {
+    return resolveSchema(schema.oneOf[0], components, seen) || schema.oneOf[0];
+  }
+  if (Array.isArray(schema.anyOf) && schema.anyOf.length) {
+    return resolveSchema(schema.anyOf[0], components, seen) || schema.anyOf[0];
+  }
+
+  // Resolve property schemas recursively
+  if (schema.type === 'object' || schema.properties) {
+    const resolved = { ...schema, type: 'object' };
+    const props = schema.properties || {};
+    const newProps = {};
+    for (const key of Object.keys(props)) {
+      newProps[key] = resolveSchema(props[key], components, seen) || props[key];
+    }
+    resolved.properties = newProps;
+    return resolved;
+  }
+
+  if (schema.type === 'array' && schema.items) {
+    return { ...schema, items: resolveSchema(schema.items, components, seen) || schema.items };
+  }
+
+  return schema;
+}
+
+// Build a minimal sample containing only required fields
+function buildSampleFromSchemaRequiredOnly(schema, components, depth = 0) {
+  if (!schema || depth > 12) return null;
+
+  if (schema.example !== undefined) return schema.example;
+  if (schema.default !== undefined) return schema.default;
+  if (schema.enum) return pickEnumOrDefault(schema.enum);
+
+  // Resolve compositions and refs first
+  const resolved = resolveSchema(schema, components) || schema;
+
+  const type = resolved.type || (resolved.properties ? 'object' : (resolved.items ? 'array' : 'string'));
+  switch (type) {
+    case 'string': {
+      if (resolved.format === 'date-time') return new Date().toISOString();
+      if (resolved.format === 'date') return new Date().toISOString().substring(0, 10);
+      if (resolved.format === 'uuid') return '00000000-0000-0000-0000-000000000000';
+      if (resolved.format === 'email') return 'user@example.com';
+      return 'string';
+    }
+    case 'integer':
+    case 'number':
+      return 0;
+    case 'boolean':
+      return true;
+    case 'array':
+      return [buildSampleFromSchemaRequiredOnly(resolved.items || {}, components, depth + 1)];
+    case 'object': {
+      const obj = {};
+      const props = resolved.properties || {};
+      const requiredList = Array.isArray(resolved.required) ? resolved.required : [];
+      // Include only required properties; if none are required, return empty object
+      for (const key of requiredList) {
+        const propSchema = props[key] || {};
+        obj[key] = buildSampleFromSchemaRequiredOnly(propSchema, components, depth + 1);
+      }
+      return obj;
+    }
+    default:
+      return null;
+  }
+}
+
 function buildSampleFromSchema(schema, depth = 0) {
   if (!schema || depth > 10) return null;
   if (schema.example !== undefined) return schema.example;
@@ -341,7 +465,7 @@ function getJsonRequestBodySchema(endpoint) {
 }
 
 // Helper function to generate individual API test
-function generateIndividualAPITest(endpoint, environment) {
+function generateIndividualAPITest(endpoint, environment, components) {
   const baseUrl = environment?.variables?.API_URL || environment?.variables?.BASE_URL || 'https://fakerestapi.azurewebsites.net';
   const timeout = environment?.variables?.TIMEOUT || 30000;
   const authHeaders = buildAuthorizationHeaders(environment);
@@ -349,6 +473,12 @@ function generateIndividualAPITest(endpoint, environment) {
   const expectedStatus = getExpectedStatus(endpoint);
   const endpointPath = endpoint.path || endpoint.url || '/unknown';
   const testName = `${endpoint.method} ${endpointPath}`;
+
+  // Prepare sample body with $ref and composition resolution, only required fields
+  const rawSchema = getJsonRequestBodySchema(endpoint);
+  const hasBody = ['POST', 'PUT', 'PATCH'].includes((endpoint.method || '').toUpperCase());
+  const minimalSample = hasBody && rawSchema ? buildSampleFromSchemaRequiredOnly(rawSchema, components) : null;
+  const sampleLiteral = minimalSample !== null ? JSON.stringify(minimalSample, null, 2) : null;
   
   return `import { test, expect, APIRequestContext } from '@playwright/test';
 import { allure } from 'allure-playwright';
@@ -371,15 +501,15 @@ test.describe('${testName}', () => {
 
   test('${testName} - should return ${expectedStatus}', async () => {
     // Build sample request body if applicable from OpenAPI schema
-    ${(['POST','PUT','PATCH'].includes((endpoint.method || '').toUpperCase()) && getJsonRequestBodySchema(endpoint)) ? `const sampleBody = ${JSON.stringify(buildSampleFromSchema(getJsonRequestBodySchema(endpoint)), null, 2)};` : ''}
+    ${minimalSample !== null ? `const sampleBody = ${sampleLiteral};` : ''}
 
     const requestOptions = {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         ...${JSON.stringify(authHeaders)}
-      }${(['POST','PUT','PATCH'].includes((endpoint.method || '').toUpperCase())) ? `,
-      data: ${getJsonRequestBodySchema(endpoint) ? 'sampleBody' : '{ /* TODO: fill body */ }'}` : ''}
+      }${hasBody ? `,
+      data: ${sampleLiteral ? 'sampleBody' : '{ /* TODO: fill body */ }'}` : ''}
     };
 
     const response = await requestContext.${(endpoint.method || 'GET').toLowerCase()}('${endpointPath}', requestOptions);
@@ -394,7 +524,7 @@ test.describe('${testName}', () => {
 }
 
 // Helper function to generate E2E API test suite
-function generateE2EAPITestSuite(endpoints, resourceName, environment) {
+function generateE2EAPITestSuite(endpoints, resourceName, environment, components = null) {
   const baseUrl = environment?.variables?.API_URL || environment?.variables?.BASE_URL || 'https://fakerestapi.azurewebsites.net';
   const timeout = environment?.variables?.TIMEOUT || 30000;
   const authHeaders = buildAuthorizationHeaders(environment);
@@ -500,12 +630,30 @@ test.describe('${resourceName} E2E API Test Suite', () => {
     
     // Add request body for POST/PUT/PATCH
     if (['POST', 'PUT', 'PATCH'].includes(method)) {
-      if (method === 'POST') {
-        code += `,
+      const schema = getJsonRequestBodySchema(endpoint);
+      if (schema) {
+        const sample = buildSampleFromSchemaRequiredOnly(schema, components);
+        if (sample) {
+          const sampleLiteral = JSON.stringify(sample, null, 2).replace(/`/g, '\\`');
+          code += `,
+        data: ${sampleLiteral}`;
+        } else {
+          if (method === 'POST') {
+            code += `,
         data: createData`;
-      } else {
-        code += `,
+          } else {
+            code += `,
         data: { ...testData.created, ...updateData }`;
+          }
+        }
+      } else {
+        if (method === 'POST') {
+          code += `,
+        data: createData`;
+        } else {
+          code += `,
+        data: { ...testData.created, ...updateData }`;
+        }
       }
     }
     
@@ -946,7 +1094,7 @@ async function generateLLMAPITest(endpoint, environment, variation = 'happy-path
     
     // Fallback to standard generation
     console.log('Falling back to standard generation...');
-    return generateIndividualAPITest(endpoint, environment);
+    return generateIndividualAPITest(endpoint, environment, null);
   }
 }
 

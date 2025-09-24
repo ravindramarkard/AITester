@@ -8,16 +8,16 @@ module.exports = defineConfig({
   testDir: './tests',
 
   /* Global setup for session management - only when not running test suites */
-  globalSetup: process.env.SKIP_GLOBAL_SETUP ? undefined : require.resolve('./global-setup.ts'),
+ // globalSetup: process.env.SKIP_GLOBAL_SETUP ? undefined : require.resolve('./global-setup.ts'),
 
   /* Run tests in files in parallel */
-  fullyParallel: true,
+  fullyParallel: true, // CSRF-safe default: avoid concurrent tests within the same file
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 1 : (process.env.UI_WORKERS ? parseInt(process.env.UI_WORKERS, 10) : 1),
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
     ['html', { outputFolder: 'server/reports/playwright' }],
@@ -32,7 +32,7 @@ module.exports = defineConfig({
     /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: process.env.BASE_URL,
 
-    storageState: 'storageState.json', // 🔑 reuse logged-in session
+   // storageState: 'storageState.json', // 🔑 reuse logged-in session
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
     
@@ -96,7 +96,8 @@ module.exports = defineConfig({
         channel: 'chrome',
         // Additional performance optimizations
         launchOptions: {
-          // args: [
+          args: [
+            '--start-maximized',
           //   '--disable-background-timer-throttling',
           //   '--disable-backgrounding-occluded-windows',
           //   '--disable-renderer-backgrounding',
@@ -118,7 +119,7 @@ module.exports = defineConfig({
           //   '--disable-setuid-sandbox',
           //   '--disable-web-security',
           //   '--disable-features=VizDisplayCompositor'
-          // ],
+           ],
           ignoreDefaultArgs: ['--enable-automation'],
         }
       },
@@ -131,7 +132,7 @@ module.exports = defineConfig({
       testMatch: '**/generated/api-tests/**/*.spec.ts',
       use: {
         // API tests don't need browser-specific settings
-        baseURL: process.env.API_URL || 'https://fakerestapi.azurewebsites.net',
+        baseURL: process.env.API_URL ,
         // API-specific timeouts
         actionTimeout: 30000,
         navigationTimeout: 30000,

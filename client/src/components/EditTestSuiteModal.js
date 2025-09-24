@@ -699,30 +699,30 @@ const EditTestSuiteModal = ({
 
             <ButtonPanel>
               <ArrowButton
-                onClick={moveAllFromSuite}
-                disabled={selectedTests.length === 0}
-                title="Move all from suite"
+                onClick={moveAllToSuite}
+                disabled={availableTests.length === 0}
+                title="Move all to suite"
               >
                 ≪
-              </ArrowButton>
-              <ArrowButton
-                onClick={moveSelectedFromSuite}
-                disabled={selectedSuiteTests.length === 0}
-                title="Move selected from suite"
-              >
-                &lt;
               </ArrowButton>
               <ArrowButton
                 onClick={moveSelectedToSuite}
                 disabled={selectedAvailableTests.length === 0}
                 title="Move selected to suite"
               >
+                &lt;
+              </ArrowButton>
+              <ArrowButton
+                onClick={moveSelectedFromSuite}
+                disabled={selectedSuiteTests.length === 0}
+                title="Move selected from suite"
+              >
                 &gt;
               </ArrowButton>
               <ArrowButton
-                onClick={moveAllToSuite}
-                disabled={availableTests.length === 0}
-                title="Move all to suite"
+                onClick={moveAllFromSuite}
+                disabled={selectedTests.length === 0}
+                title="Move all from suite"
               >
                 ≫
               </ArrowButton>

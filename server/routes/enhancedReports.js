@@ -94,8 +94,8 @@ router.get('/status', async (req, res) => {
     const fs = require('fs').promises;
     const path = require('path');
     
-    const allureReportPath = path.join(__dirname, '../services/reports/allure/index.html');
-    const playwrightReportPath = path.join(__dirname, '../services/reports/playwright/index.html');
+    const allureReportPath = path.join(__dirname, '../reports/allure/index.html');
+    const playwrightReportPath = path.join(__dirname, '../reports/playwright/index.html');
     
     const allureExists = await fs.access(allureReportPath).then(() => true).catch(() => false);
     const playwrightExists = await fs.access(playwrightReportPath).then(() => true).catch(() => false);

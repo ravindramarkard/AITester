@@ -1179,7 +1179,8 @@ const APITestGenerator = () => {
         resourceName: testType === 'e2e' ? resourceName : undefined,
         environmentId: selectedEnvironment,
         useLLM,
-        testVariations: useLLM ? testVariations : ['happy-path']
+        testVariations: useLLM ? testVariations : ['happy-path'],
+        components: openApiComponents || null
       });
 
       setGeneratedCode(response.data.testCode);

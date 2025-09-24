@@ -73,7 +73,8 @@ router.post('/run', async (req, res) => {
       status: 'running',
       startedAt: new Date().toISOString(),
       results: null,
-      logs: []
+      logs: [],
+      source: 'single'
     };
 
     // Store test execution in file storage
@@ -239,9 +240,10 @@ router.post('/run', async (req, res) => {
         console.log(`Running command: ${command}`);
         
         // Set environment variables for local browsers and test execution
+        const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(projectRoot, '.local-browsers');
         const env = { 
           ...process.env, 
-          PLAYWRIGHT_BROWSERS_PATH: './node_modules/playwright-core/.local-browsers'
+          PLAYWRIGHT_BROWSERS_PATH: browsersPath
         };
         
         // If test was generated from a prompt with baseUrl, explicitly unset BASE_URL
@@ -285,11 +287,17 @@ router.post('/run', async (req, res) => {
         
         console.log('Setting PLAYWRIGHT_BROWSERS_PATH to:', env.PLAYWRIGHT_BROWSERS_PATH);
         
-        // Execute Playwright test from the project root
+        // Ensure Allure results for direct executions
+        if (!playwrightArgs.some(arg => String(arg).includes('reporter'))) {
+          playwrightArgs.push('--reporter=html,allure-playwright');
+        }
         const playwrightProcess = spawn('npx', playwrightArgs, {
           cwd: projectRoot, // Run from project root
           stdio: ['pipe', 'pipe', 'pipe'],
-          env: env
+          env: { 
+            ...env,
+            PLAYWRIGHT_HTML_REPORT: path.join(projectRoot, 'server', 'reports', 'playwright')
+          }
         });
         
         let testOutput = '';
@@ -322,8 +330,19 @@ router.post('/run', async (req, res) => {
             status: executionResult.status,
             completedAt: executionResult.completedAt,
             results: executionResult,
-            logs: testOutput.split('\n').filter(line => line.trim())
+            logs: testOutput.split('\n').filter(line => line.trim()),
+            source: 'single'
           });
+
+          // Always regenerate Allure report with latest results
+          try {
+            const ReportGenerator = require('../services/ReportGenerator');
+            const rg = new ReportGenerator();
+            await rg.generateAllureReport();
+            console.log('Allure report regenerated after execution');
+          } catch (e) {
+            console.log('Failed to regenerate Allure report:', e.message);
+          }
         });
         
         // Response already sent above, don't send again

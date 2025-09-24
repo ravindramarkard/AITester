@@ -147,14 +147,17 @@ function launchBrowserTest(testFilePath, environment) {
         environment: environment?.name
       });
       
-      // Set environment variables for the test
-      const env = {
-        ...process.env,
-        PLAYWRIGHT_BROWSERS_PATH: 0,
+      // Set environment variables for local browsers and test execution
+      const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(projectRoot, '.local-browsers');
+      const env = { 
+        ...process.env, 
+        PLAYWRIGHT_BROWSERS_PATH: browsersPath,
         BASE_URL: environment?.variables?.BASE_URL || 'http://localhost:5050',
         BROWSER_TYPE: environment?.variables?.BROWSER || 'chromium',
-        HEADLESS_MODE: environment?.variables?.HEADLESS || 'false' // Set to false for headed mode
+        HEADLESS_MODE: environment?.variables?.HEADLESS || 'false'
       };
+      // Set environment variables for the test
+     
       
       // Launch Playwright test with headed mode
       // Quote the path to handle spaces in directory names
@@ -919,10 +922,14 @@ router.post('/generate-and-run', async (req, res) => {
     
     console.log(`Running test: ${relativePath}`);
     
-    // Run Playwright test
+    // Run Playwright test with explicit browsers path
+    const projectRoot = path.join(__dirname, '../..');
+    const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(projectRoot, '.local-browsers');
+    const env = { ...process.env, PLAYWRIGHT_BROWSERS_PATH: browsersPath };
     const playwrightProcess = spawn('npx', ['playwright', 'test', relativePath, '--headed', '--project=chromium'], {
-      cwd: process.cwd(),
-      stdio: ['pipe', 'pipe', 'pipe']
+      cwd: projectRoot,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env
     });
     
     let testOutput = '';
@@ -1059,6 +1066,9 @@ router.post('/generate-and-run', async (req, res) => {
       '--timeout=30000'
     ];
 
+    // Ensure Allure results are produced for single-test runs
+    playwrightArgs.push('--reporter=list,allure-playwright');
+
     // Add session management if using existing session
     if (useExistingSession) {
       const fs = require('fs-extra');
@@ -1075,7 +1085,8 @@ router.post('/generate-and-run', async (req, res) => {
     console.log('Executing Playwright command:', `npx playwright ${playwrightArgs.join(' ')}`);
 
     // Set environment variable for local browsers
-    const env = { ...process.env, PLAYWRIGHT_BROWSERS_PATH: './node_modules/playwright-core/.local-browsers' };
+    const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(projectRoot, '.local-browsers');
+    const env = { ...process.env, PLAYWRIGHT_BROWSERS_PATH: browsersPath };
     console.log('Setting PLAYWRIGHT_BROWSERS_PATH to:', env.PLAYWRIGHT_BROWSERS_PATH);
 
     const playwrightProcess = spawn('npx', ['playwright', ...playwrightArgs], {

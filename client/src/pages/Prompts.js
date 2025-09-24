@@ -647,7 +647,7 @@ const Prompts = () => {
         // Use generate-llm-playwright endpoint for LLM generation
         response = await api.post('/code-generation/generate-llm-playwright', {
           promptContent: prompt?.promptContent || prompt?.content || '',
-          testName: `Generated from ${prompt?.title}`,
+          testName: prompt?.title,
           testType: prompt?.testType || 'UI Test',
           environment: selectedEnvironment, // Pass full environment object
           parsedSteps: prompt?.metadata?.parsedSteps || [], // Send parsed steps for reference

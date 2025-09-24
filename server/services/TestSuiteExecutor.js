@@ -79,15 +79,15 @@ class TestSuiteExecutor {
       console.log('🔧 Environment config received:', JSON.stringify(environmentConfig, null, 2));
       console.log('🔧 Environment variables extracted:', JSON.stringify(envVars, null, 2));
       
-      const env = {
+            const env = {
         ...process.env,
-        // Set Playwright browsers path to project root
-        PLAYWRIGHT_BROWSERS_PATH: path.join(this.projectRoot, 'node_modules', 'playwright-core', '.local-browsers'),
+        // Set Playwright browsers path using env override or default to project .local-browsers
+        PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(this.projectRoot, '.local-browsers'),
         // Use environment config if available, otherwise use defaults
         BASE_URL: envVars.baseUrl || envVars.BASE_URL || 
-                  (environment === 'test' ? 'http://localhost:5050' : 
-                   environment === 'development' ? 'http://localhost:5050' : 
-                   environment === 'production' ? 'https://your-prod-url.com' : 'http://localhost:5050'),
+                 (environment === 'test' ? 'http://localhost:5050' : 
+                  environment === 'development' ? 'http://localhost:5050' : 
+                  environment === 'production' ? 'https://your-prod-url.com' : 'http://localhost:5050'),
         API_BASE_URL: envVars.apiBaseUrl || envVars.API_BASE_URL || 
                       (environment === 'test' ? 'http://localhost:5051' : 
                        environment === 'development' ? 'http://localhost:5051' : 
@@ -377,7 +377,6 @@ class TestSuiteExecutor {
         const args = [
           'test',
           ...uniqueTestFiles, // Pass unique test files to a single command
-          '--reporter=html,json',
           '--output=' + executionDir,
           '--workers=1', // Force single worker for sequential execution
           '--timeout=30000',
@@ -387,16 +386,22 @@ class TestSuiteExecutor {
 
         // Add headless mode
         if (config.headless) {
-          console.log(`🎭 Running tests in headless mode`);
+          console.log(`🎭 Running in headless mode`);
         } else {
           args.push('--headed');
-          console.log(`🎭 Running tests in headed mode`);
+          console.log(`🎭 Running in headed mode`);
         }
 
         // Add browser project
         if (config.browser !== 'chromium') {
           args.push('--project=' + config.browser);
           console.log(`🎭 Using browser project: ${config.browser}`);
+        }
+
+        const isApiProject = String(config.browser || '').toLowerCase() === 'api';
+        if (isApiProject) {
+          // Force default HTML report for API into server/reports/api
+          args.push('--reporter=html');
         }
 
         // Add tag filtering
@@ -413,6 +418,8 @@ class TestSuiteExecutor {
           env: { 
             ...process.env, 
             ...env,
+            // Route API HTML report to a separate folder
+            ...(isApiProject ? { PLAYWRIGHT_HTML_REPORT: path.join(this.projectRoot, 'server', 'reports', 'api') } : {}),
             // Ensure we use the root project's Playwright
             NODE_PATH: path.join(this.projectRoot, 'node_modules')
           }
@@ -435,6 +442,19 @@ class TestSuiteExecutor {
 
         playwrightProcess.on('close', (code) => {
           console.log(`🎭 Sequential execution completed with exit code: ${code}`);
+          // Regenerate reports so the latest are available from the Results page
+          try {
+            const ReportGenerator = require('./ReportGenerator');
+            const rg = new ReportGenerator();
+            rg.generatePlaywrightReport().then(() => console.log('✅ Playwright report refreshed after suite (sequential)'));
+            if (isApiProject) {
+              rg.generateApiReport().then(() => console.log('✅ API report refreshed after suite (sequential)'));
+            } else {
+              rg.generateAllureReport().then(() => console.log('✅ Allure report regenerated after suite (sequential)'));
+            }
+          } catch (e) {
+            console.log('⚠️ Failed to regenerate report after suite (sequential):', e.message);
+          }
           resolve({
             exitCode: code,
             stdout: stdout,
@@ -557,7 +577,6 @@ class TestSuiteExecutor {
       const args = [
         'test',
         ...uniqueTestFiles,
-        '--reporter=html,json',
         '--output=' + executionDir,
         '--workers=' + config.workers,
         '--timeout=30000',
@@ -580,6 +599,11 @@ class TestSuiteExecutor {
         console.log(`🎭 Using browser project: ${config.browser}`);
       }
 
+      const isApiProject = String(config.browser || '').toLowerCase() === 'api';
+      if (isApiProject) {
+        args.push('--reporter=html');
+      }
+
       // Add tag filtering
       if (config.tags && config.tags.length > 0) {
         args.push('--grep=' + config.tags.join('|'));
@@ -595,6 +619,7 @@ class TestSuiteExecutor {
         env: { 
           ...process.env, 
           ...env,
+          ...(isApiProject ? { PLAYWRIGHT_HTML_REPORT: path.join(this.projectRoot, 'server', 'reports', 'api') } : {}),
           // Ensure we use the root project's Playwright
           NODE_PATH: path.join(this.projectRoot, 'node_modules')
         },
@@ -621,6 +646,20 @@ class TestSuiteExecutor {
         console.log(`📊 Total stdout length: ${stdout.length}`);
         console.log(`📊 Total stderr length: ${stderr.length}`);
         
+        // Regenerate reports so the latest are available from the Results page
+        try {
+          const ReportGenerator = require('./ReportGenerator');
+          const rg = new ReportGenerator();
+          rg.generatePlaywrightReport().then(() => console.log('✅ Playwright report refreshed after suite (parallel)'));
+          if (isApiProject) {
+            rg.generateApiReport().then(() => console.log('✅ API report refreshed after suite (parallel)'));
+          } else {
+            rg.generateAllureReport().then(() => console.log('✅ Allure report regenerated after suite (parallel)'));
+          }
+        } catch (e) {
+          console.log('⚠️ Failed to regenerate report after suite (parallel):', e.message);
+        }
+
         if (code === 0) {
           console.log(`✅ Playwright execution successful`);
           resolve({

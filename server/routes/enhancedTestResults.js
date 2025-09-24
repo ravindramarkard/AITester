@@ -11,12 +11,15 @@ const reportGenerator = new ReportGenerator();
 // Get enhanced execution summary with detailed analytics
 router.get('/summary/execution', async (req, res) => {
   try {
-    // Try to get data from reports first (most recent)
-    let stats = await getStatsFromReports();
+    // Prefer Playwright report (authoritative), then Allure, then stored results
+    let stats = await getStatsFromPlaywrightReport();
+    if (!stats || stats.totalTests === 0) {
+      stats = await getStatsFromAllureReport();
+    }
     
     // If no report data available, fall back to test results
     if (!stats || stats.totalTests === 0) {
-      const testResults = await fileStorage.getTestResults();
+      const testResults = (await fileStorage.getTestResults()).filter(r => r.source !== 'single');
       
       // Calculate statistics from test results
       const totalTests = testResults.length;
@@ -157,70 +160,42 @@ function parseAllureReportForAnalytics(htmlContent) {
   }
 }
 
-// Get statistics from stored test results
-async function getStatsFromTestResults() {
+async function getStatsFromPlaywrightReport() {
   try {
+    const reportPath = path.join(__dirname, '../services/reports/playwright/index.html');
+    const html = await fs.readFile(reportPath, 'utf8');
+    // Our custom Playwright report only lists names; derive counts from stored results instead
     const testResults = await fileStorage.getTestResults();
-    
-    if (!testResults || testResults.length === 0) {
-      return null;
-    }
-
-    // Calculate statistics
     const totalTests = testResults.length;
-    const passed = testResults.filter(test => test.status === 'passed').length;
-    const failed = testResults.filter(test => test.status === 'failed').length;
-    const skipped = testResults.filter(test => test.status === 'skipped').length;
-    const running = testResults.filter(test => test.status === 'running').length;
+    const passed = testResults.filter(r => r.status === 'passed').length;
+    const failed = testResults.filter(r => r.status === 'failed').length;
+    const running = testResults.filter(r => r.status === 'running').length;
     const successRate = totalTests > 0 ? Math.round((passed / totalTests) * 100) : 0;
+    const completed = testResults.filter(r => r.results && r.results.duration);
+    const averageDuration = completed.length > 0 
+      ? Math.round(completed.reduce((s, r) => s + r.results.duration, 0) / completed.length) : 0;
+    return { totalTests, passed, failed, running, skipped: 0, successRate, averageDuration };
+  } catch {
+    return null;
+  }
+}
 
-    // Transform test details
-    const testDetails = testResults.map(test => ({
-      id: test.id || test.name,
-      name: test.name,
-      status: test.status,
-      duration: test.duration || 0,
-      severity: test.severity || 'medium',
-      timestamp: test.timestamp || new Date().toISOString(),
-      error: test.error || null
-    }));
-
-    // Calculate distributions
-    const statusDistribution = {
-      passed,
-      failed,
-      skipped,
-      running
-    };
-
-    const durationDistribution = {
-      '0-1s': testDetails.filter(t => t.duration <= 1000).length,
-      '1-5s': testDetails.filter(t => t.duration > 1000 && t.duration <= 5000).length,
-      '5-10s': testDetails.filter(t => t.duration > 5000 && t.duration <= 10000).length,
-      '10s+': testDetails.filter(t => t.duration > 10000).length
-    };
-
-    const severityDistribution = {
-      low: testDetails.filter(t => t.severity === 'low').length,
-      medium: testDetails.filter(t => t.severity === 'medium').length,
-      high: testDetails.filter(t => t.severity === 'high').length,
-      critical: testDetails.filter(t => t.severity === 'critical').length
-    };
-
-    return {
-      totalTests,
-      passed,
-      failed,
-      skipped,
-      running,
-      successRate,
-      statusDistribution,
-      durationDistribution,
-      severityDistribution,
-      testDetails
-    };
-  } catch (error) {
-    console.log('⚠️ Error getting stats from test results:', error.message);
+async function getStatsFromAllureReport() {
+  try {
+    const reportPath = path.join(__dirname, '../services/reports/allure/index.html');
+    const html = await fs.readFile(reportPath, 'utf8');
+    // If this is the lite page, still avoid parsing it; use stored results instead
+    const testResults = await fileStorage.getTestResults();
+    const totalTests = testResults.length;
+    const passed = testResults.filter(r => r.status === 'passed').length;
+    const failed = testResults.filter(r => r.status === 'failed').length;
+    const running = testResults.filter(r => r.status === 'running').length;
+    const successRate = totalTests > 0 ? Math.round((passed / totalTests) * 100) : 0;
+    const completed = testResults.filter(r => r.results && r.results.duration);
+    const averageDuration = completed.length > 0 
+      ? Math.round(completed.reduce((s, r) => s + r.results.duration, 0) / completed.length) : 0;
+    return { totalTests, passed, failed, running, skipped: 0, successRate, averageDuration };
+  } catch {
     return null;
   }
 }

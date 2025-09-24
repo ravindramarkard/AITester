@@ -11,7 +11,8 @@ import {
   FiMonitor,
   FiImage,
   FiX,
-  FiAlertTriangle
+  FiAlertTriangle,
+  FiClock
 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import api from '../config/axios';
@@ -22,6 +23,7 @@ import CreateTestSuiteModal from '../components/CreateTestSuiteModal';
 import EditTestSuiteModal from '../components/EditTestSuiteModal';
 import TestExecutionStatus from '../components/TestExecutionStatus';
 import ExecutionDetailsModal from '../components/ExecutionDetailsModal';
+import TestSuiteDetails from '../components/TestSuiteDetails';
 
 const TestSuiteContainer = styled.div`
   padding: 30px;
@@ -875,6 +877,14 @@ const TestSuitesDeleteButton = styled(TestSuitesActionButton)`
   }
 `;
 
+const TestSuitesViewButton = styled(TestSuitesActionButton)`
+  color: #7f8c8d;
+  
+  &:hover {
+    background-color: #f8f9fa;
+  }
+`;
+
 const TestSuiteManagement = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('overview');
@@ -916,6 +926,8 @@ const TestSuiteManagement = () => {
   const [showExecutionStatus, setShowExecutionStatus] = useState(false);
   const [showExecutionDetails, setShowExecutionDetails] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [showTestSuiteDetails, setShowTestSuiteDetails] = useState(false);
+  const [selectedTestSuite, setSelectedTestSuite] = useState(null);
   
   // Debug activeFilter changes
   useEffect(() => {
@@ -1460,6 +1472,17 @@ const TestSuiteManagement = () => {
     setShowEditTestSuiteModal(true);
   };
 
+  const handleViewTestSuite = (testSuite) => {
+    setSelectedTestSuite(testSuite);
+    setShowTestSuiteDetails(true);
+  };
+
+  const handleBackToSuites = () => {
+    setShowTestSuiteDetails(false);
+    setSelectedTestSuite(null);
+    fetchTestSuites && fetchTestSuites();
+  };
+
   const handleTestSuiteUpdated = async (updatedData) => {
     try {
       console.log('Test suite updated:', updatedData);
@@ -1788,6 +1811,42 @@ const TestSuiteManagement = () => {
         <div style={{ textAlign: 'center', padding: '60px' }}>
           <div>Loading tests...</div>
         </div>
+      </TestSuiteContainer>
+    );
+  }
+
+  if (showTestSuiteDetails && selectedTestSuite) {
+    return (
+      <TestSuiteContainer>
+        <TestSuiteDetails
+          testSuite={selectedTestSuite}
+          onBack={handleBackToSuites}
+          onRun={handleRunTestSuite}
+          onEdit={handleEditTestSuite}
+          onDelete={() => handleDeleteTestSuite(selectedTestSuite.id)}
+        />
+        {showRunTestSuiteModal && (
+          <RunTestSuiteModal
+            isOpen={showRunTestSuiteModal}
+            onClose={() => {
+              setShowRunTestSuiteModal(false);
+              setRunningTestSuite(null);
+            }}
+            testSuite={runningTestSuite || selectedTestSuite}
+            onExecute={handleTestSuiteExecuted}
+          />
+        )}
+        {showEditTestSuiteModal && (
+          <EditTestSuiteModal
+            isOpen={showEditTestSuiteModal}
+            onClose={() => {
+              setShowEditTestSuiteModal(false);
+              setEditingTestSuite(null);
+            }}
+            testSuite={editingTestSuite || selectedTestSuite}
+            onSave={handleTestSuiteUpdated}
+          />
+        )}
       </TestSuiteContainer>
     );
   }
@@ -2232,6 +2291,12 @@ const TestSuiteManagement = () => {
                             }}></div>
                           </TestSuitesTableCell>
                           <TestSuitesTableCell>
+                            <TestSuitesViewButton
+                              onClick={() => handleViewTestSuite(testSuite)}
+                            >
+                              <FiClock />
+                              Scheduler
+                            </TestSuitesViewButton>
                             <TestSuitesRunButton
                               onClick={() => handleRunTestSuite(testSuite)}
                             >
@@ -2436,7 +2501,7 @@ const TestSuiteManagement = () => {
             setShowEditTestSuiteModal(false);
             setEditingTestSuite(null);
           }}
-          testSuite={editingTestSuite}
+          testSuite={editingTestSuite || selectedTestSuite}
           onSave={handleTestSuiteUpdated}
         />
       )}

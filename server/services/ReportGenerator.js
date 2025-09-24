@@ -6,7 +6,8 @@ class ReportGenerator {
   constructor() {
     this.fileStorage = new FileStorage();
     // Align with server static mount: app.use('/reports', express.static(path.join(__dirname, 'reports')))
-    this.reportsDir = path.join(__dirname, 'reports');
+    // Write directly to server/reports so the UI serves the latest files
+    this.reportsDir = path.join(__dirname, '..', 'reports');
     this.playwrightReportDir = path.join(this.reportsDir, 'playwright');
     this.allureReportDir = path.join(this.reportsDir, 'allure');
   }
@@ -151,6 +152,45 @@ class ReportGenerator {
     try {
       await this.ensureDirectories();
       
+      const allureResultsDir = path.join(__dirname, '..', '..', 'allure-results');
+      const hasAllureResults = await this.checkFileExists(allureResultsDir).catch(() => false);
+      
+      if (hasAllureResults) {
+        try {
+          const { spawn } = require('child_process');
+          // Generate real Allure report
+          const result = await new Promise((resolve, reject) => {
+            const proc = spawn('npx', [
+              'allure',
+              'generate',
+              allureResultsDir,
+              '--clean',
+              '-o',
+              this.allureReportDir
+            ], {
+              cwd: path.join(__dirname, '..', '..'),
+              stdio: 'pipe'
+            });
+            let stderr = '';
+            proc.stderr.on('data', d => { stderr += d.toString(); });
+            proc.on('close', code => {
+              if (code === 0) resolve(true); else reject(new Error(stderr || `allure exited ${code}`));
+            });
+            proc.on('error', err => reject(err));
+          });
+          if (result) {
+            return {
+              success: true,
+              path: '/reports/allure/index.html',
+              message: 'Real Allure report generated successfully'
+            };
+          }
+        } catch (cliError) {
+          console.warn('Real Allure generation failed, falling back to lite report:', cliError.message);
+        }
+      }
+      
+      // Fallback: generate lightweight summary page
       const testResults = await this.fileStorage.getTestResults();
       const completedTests = testResults.filter(test => test.status === 'passed' || test.status === 'failed');
       
@@ -161,15 +201,7 @@ class ReportGenerator {
       const successRate = total > 0 ? Math.round((passed / total) * 100) : 0;
       
       const allureData = {
-        summary: {
-          total: total,
-          passed: passed,
-          failed: failed,
-          broken: 0,
-          skipped: skipped,
-          unknown: 0,
-          successRate: successRate
-        },
+        summary: { total, passed, failed, broken: 0, skipped, unknown: 0, successRate },
         tests: completedTests.map(test => ({
           uuid: test._id,
           name: test.testName,
@@ -180,7 +212,7 @@ class ReportGenerator {
           stopTime: new Date(test.completedAt).getTime(),
           parameters: [
             { name: 'browser', value: test.browser },
-            { name: 'headless', value: test.headless.toString() },
+            { name: 'headless', value: String(test.headless) },
             { name: 'environment', value: test.environment }
           ],
           steps: test.results?.steps || [],
@@ -190,12 +222,14 @@ class ReportGenerator {
 
       const htmlContent = this.generateAllureHTML(allureData);
       const indexPath = path.join(this.allureReportDir, 'index.html');
+      await fs.rm(this.allureReportDir, { recursive: true, force: true });
+      await fs.mkdir(this.allureReportDir, { recursive: true });
       await fs.writeFile(indexPath, htmlContent);
 
       return {
         success: true,
         path: '/reports/allure/index.html',
-        message: 'Allure report generated successfully'
+        message: 'Allure report (lite) generated as fallback'
       };
     } catch (error) {
       console.error('Error generating Allure report:', error);

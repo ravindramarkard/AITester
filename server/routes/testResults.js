@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const FileStorage = require('../services/FileStorage');
 const ReportGenerator = require('../services/ReportGenerator');
+const fs = require('fs-extra');
+const path = require('path');
 
 const fileStorage = new FileStorage();
 const reportGenerator = new ReportGenerator();
@@ -57,13 +59,19 @@ router.get('/summary/execution', async (req, res) => {
     
     // If no report data available, fall back to test results
     if (!stats || stats.totalTests === 0) {
-      const testResults = await fileStorage.getTestResults();
+      const testResults = (await fileStorage.getTestResults()).filter(r => r.source !== 'single');
       
       // Calculate statistics from test results
-      const totalTests = testResults.length;
-      const passed = testResults.filter(r => r.status === 'passed').length;
-      const failed = testResults.filter(r => r.status === 'failed').length;
-      const running = testResults.filter(r => r.status === 'running').length;
+      // Only count suite executions in KPIs
+      const suiteResults = testResults.filter(r => r.source !== 'single');
+      const totalTests = suiteResults.length;
+      const passed = suiteResults.filter(r => r.status === 'passed').length;
+      let failed = suiteResults.filter(r => r.status === 'failed').length;
+      const running = suiteResults.filter(r => r.status === 'running').length;
+      const skipped = suiteResults.filter(r => r.status === 'skipped').length;
+      if (failed === 0) {
+        failed = Math.max(totalTests - passed - running - skipped, 0);
+      }
       const successRate = totalTests > 0 ? Math.round((passed / totalTests) * 100) : 0;
       
       // Calculate average duration
@@ -96,7 +104,7 @@ async function getStatsFromReports() {
     const path = require('path');
     
     // Try Allure report first (usually more up-to-date)
-    const allureReportPath = path.join(__dirname, '../services/reports/allure/index.html');
+    const allureReportPath = path.join(__dirname, '../reports/allure/index.html');
     
     try {
       const allureContent = await fs.readFile(allureReportPath, 'utf8');
@@ -110,7 +118,7 @@ async function getStatsFromReports() {
     }
     
     // Try Playwright report as fallback
-    const playwrightReportPath = path.join(__dirname, '../services/reports/playwright/index.html');
+    const playwrightReportPath = path.join(__dirname, '../reports/playwright/index.html');
     
     try {
       const playwrightContent = await fs.readFile(playwrightReportPath, 'utf8');
@@ -432,6 +440,16 @@ router.post('/generate-allure-report', async (req, res) => {
   }
 });
 
+// Generate API report (HTML)
+router.post('/generate-api-report', async (req, res) => {
+  try {
+    const result = await reportGenerator.generateApiReport();
+    res.json({ success: result, path: '/reports/api/index.html' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Refresh both reports with latest data
 router.post('/refresh-reports', async (req, res) => {
   try {
@@ -481,6 +499,41 @@ router.get('/stats/from-reports', async (req, res) => {
       success: false,
       error: error.message 
     });
+  }
+});
+
+// Reset metrics from Playwright report only
+router.post('/reset-from-playwright', async (req, res) => {
+  try {
+    const pw = await reportGenerator.generatePlaywrightReport();
+    // Always compute stats from test results (authoritative) after regeneration
+    const stats = await getStatsFromTestResults();
+    res.json({ success: true, playwright: pw, stats });
+  } catch (error) {
+    console.error('Error resetting from Playwright:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Reset KPI matrix: clear stored results and reports
+router.post('/reset-kpis', async (req, res) => {
+  try {
+    // Clear test results
+    await fileStorage.writeFile('testResults.json', []);
+
+    // Clean allure-results and rendered reports
+    const projectRoot = path.join(__dirname, '..', '..');
+    const allureResults = path.join(projectRoot, 'allure-results');
+    const reportsRoot = path.join(__dirname, '..', 'services', 'reports');
+
+    await fs.rm(allureResults, { recursive: true, force: true });
+    await fs.rm(path.join(reportsRoot, 'allure'), { recursive: true, force: true });
+    await fs.rm(path.join(reportsRoot, 'playwright'), { recursive: true, force: true });
+
+    res.json({ success: true, message: 'KPI matrix reset. Stored results and reports cleared.' });
+  } catch (error) {
+    console.error('Error resetting KPI matrix:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

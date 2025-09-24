@@ -1,0 +1,10 @@
+{
+  "watch": ["."],
+  "ignore": [
+    "reports/**",
+    "../test-results/**",
+    "../allure-results/**",
+    "node_modules/**"
+  ],
+  "ext": "js,json"
+} 

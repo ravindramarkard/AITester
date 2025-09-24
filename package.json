@@ -15,8 +15,9 @@
     "test:refresh-reports": "node scripts/refresh-reports.js",
     "test:auto-allure": "node scripts/post-test-allure.js",
     "test:with-allure": "node scripts/run-tests-with-allure.js",
-    "test:playwright": "PLAYWRIGHT_BROWSERS_PATH=./.playwright-browsers npx playwright test",
-    "postinstall": "PLAYWRIGHT_BROWSERS_PATH=./.playwright-browsers npx playwright install --with-deps chromium ffmpeg"
+    "postinstall": "cross-env PLAYWRIGHT_BROWSERS_PATH=./.local-browsers npx playwright install --with-deps chromium ffmpeg",
+    "test:playwright": "cross-env PLAYWRIGHT_BROWSERS_PATH=./.local-browsers npx playwright test",
+    "install:chromium": "cross-env PLAYWRIGHT_BROWSERS_PATH=./.local-browsers npx playwright install chromium"
   },
   "keywords": [
     "testing",
@@ -29,23 +30,27 @@
   "license": "Ravindra Markard",
   "devDependencies": {
     "@faker-js/faker": "^10.0.0",
-    "@playwright/test": "^1.40.0",
+    "@playwright/test": "^1.55.1",
     "allure-commandline": "^2.24.0",
     "allure-playwright": "^3.3.3",
     "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "faker": "@faker-js/faker@^9.0.0",
     "nodemon": "^3.0.0",
-    "playwright": "^1.55.0"
+    "playwright": "^1.55.1"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.9.0",
     "ajv": "^8.12.0",
     "allure-playwright": "^3.3.3",
     "axios": "^1.6.0",
+    "chromium": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.0",
     "express": "^4.18.0",
     "faker": "@faker-js/faker@^9.0.0",
     "fs-extra": "^11.1.0",
-    "openai": "^4.0.0"
+    "openai": "^4.0.0",
+    "playwright-chromium": "^1.55.1"
   }
 }

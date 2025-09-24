@@ -1,12 +1,14 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs-extra');
+const FileStorage = require('./FileStorage');
 
 class ApiTestExecutor {
   constructor() {
     this.projectRoot = path.join(__dirname, '../..');
     this.resultsDir = path.join(this.projectRoot, 'test-results');
     this.allureResultsDir = path.join(this.projectRoot, 'allure-results');
+    this.fileStorage = new FileStorage();
   }
 
   async executeApiTest(testFile, executionConfig, environmentConfig = null) {
@@ -86,12 +88,12 @@ class ApiTestExecutor {
         const args = [
           'test',
           testFile,
-          '--reporter=html,json',
           '--output=' + executionDir,
-          '--workers=1', // Single worker for API tests
+          '--workers=1', // Force single worker for sequential execution
           `--timeout=${config.timeout}`,
           `--retries=${config.retries}`,
-          '--project=api' // Use API project configuration
+          '--project=api', // Use API project configuration
+          '--reporter=html' // Generate default Playwright HTML report only
         ];
 
         // Add tag filtering
@@ -108,6 +110,9 @@ class ApiTestExecutor {
           env: { 
             ...process.env, 
             ...env,
+            PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(this.projectRoot, '.local-browsers'),
+            // Write API HTML report under server/reports/api
+            PLAYWRIGHT_HTML_REPORT: path.join(this.projectRoot, 'server', 'reports', 'api'),
             // Ensure we use the root project's Playwright
             NODE_PATH: path.join(this.projectRoot, 'node_modules')
           }
@@ -130,6 +135,29 @@ class ApiTestExecutor {
 
         playwrightProcess.on('close', (code) => {
           console.log(`🎭 API test execution completed with exit code: ${code}`);
+          // Persist a summarized API test result for reporting
+          (async () => {
+            try {
+              const duration = Date.now() - startedAt;
+              const testName = path.basename(testFile).replace(/\.spec\.[tj]s$/, '').replace(/[-_]/g, ' ');
+              await this.fileStorage.createTestResult({
+                testName: testName,
+                testType: 'API',
+                browser: 'api',
+                headless: true,
+                environment: env.TEST_ENVIRONMENT || 'test',
+                status: code === 0 ? 'passed' : 'failed',
+                results: { duration }
+              });
+              const ReportGenerator = require('./ReportGenerator');
+              const rg = new ReportGenerator();
+              await rg.generateApiReport();
+              console.log('✅ API HTML report regenerated after API test');
+            } catch (persistErr) {
+              console.log('⚠️ Failed to persist API test result or generate report:', persistErr.message);
+            }
+          })();
+
           resolve({
             exitCode: code,
             stdout: stdout,

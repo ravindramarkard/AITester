@@ -316,9 +316,25 @@ const Results = () => {
     fetchResults();
   }, []);
 
+  const waitForReportsAvailable = async (timeoutMs = 15000) => {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      try {
+        const reportsResponse = await api.get('/test-results/reports/available');
+        const r = reportsResponse.data || {};
+        if ((r.playwright?.available || r.allure?.available || r.api?.available)) return true;
+      } catch {}
+      await new Promise(res => setTimeout(res, 800));
+    }
+    return false;
+  };
+
   const fetchResults = async () => {
     try {
       setLoading(true);
+      
+      // Wait briefly for report generation to finish if just executed
+      await waitForReportsAvailable();
       
       // Try to get data from reports first (most recent)
       try {
@@ -377,37 +393,28 @@ const Results = () => {
       const testResultsResponse = await api.get('/test-results');
       const testResults = testResultsResponse.data || [];
       
-      // Transform test results for display
-      const recentTests = testResults.slice(0, 10).map((test, index) => {
-        // Generate more descriptive test names based on execution data
-        const generateTestName = (test) => {
-          if (test.testName && test.testName !== 'Login Test') {
-            return test.testName;
-          }
-          
-          // Generate names based on test characteristics
-          const testTypes = ['Login Flow', 'User Authentication', 'Data Validation', 'API Integration', 'UI Navigation', 'Form Submission', 'Error Handling', 'Performance Test'];
-          const testType = testTypes[index % testTypes.length];
-          const browserType = test.browser === 'chromium' ? 'Chrome' : test.browser === 'firefox' ? 'Firefox' : 'Safari';
-          return `${testType} - ${browserType}`;
-        };
+      // Transform test results for display (latest executed first)
+      const executed = (testResults || [])
+        .filter(t => t && (t.completedAt || (t.status && t.status !== 'running')))
+        .sort((a, b) => {
+          const ta = new Date(a.completedAt || a.createdAt || 0).getTime();
+          const tb = new Date(b.completedAt || b.createdAt || 0).getTime();
+          return tb - ta;
+        });
 
-        return {
-          id: test._id,
-          name: generateTestName(test),
-          type: test.testType || 'Unknown',
-          status: test.status || 'unknown',
-          createdAt: new Date(test.createdAt),
-          files: 1, // Each test has one spec file
-          executionId: test.executionId,
-          browser: test.browser || 'unknown',
-          headless: test.headless !== undefined ? test.headless : true,
-          environment: test.environment || 'default',
-          duration: test.results?.duration || 0,
-          completedAt: test.completedAt ? new Date(test.completedAt) : null,
-          description: `${test.testType || 'Test'} - ${test.browser || 'unknown'} - ${test.headless ? 'Headless' : 'Visible'}`
-        };
-      });
+      const recentTests = executed.slice(0, 10).map((test) => ({
+        id: test._id,
+        name: test.testName || test.name || 'Unnamed Test',
+        type: test.testType || 'Unknown',
+        status: test.status || 'unknown',
+        createdAt: test.createdAt ? new Date(test.createdAt) : new Date(),
+        executionId: test.executionId,
+        browser: test.browser || 'unknown',
+        headless: test.headless !== undefined ? test.headless : true,
+        environment: test.environment || 'default',
+        duration: test.results?.duration || 0,
+        completedAt: test.completedAt ? new Date(test.completedAt) : null
+      }));
       
       setRecentTests(recentTests);
     } catch (error) {
@@ -570,6 +577,67 @@ const Results = () => {
     }
   };
 
+  const handleResetFromPlaywright = async () => {
+    try {
+      setLoading(true);
+      // Clear KPIs immediately while resetting
+      setStats({ totalTests: 0, passed: 0, failed: 0, skipped: 0, successRate: 0, averageDuration: 0 });
+      toast.info('Resetting from Playwright report...');
+      const resp = await api.post('/test-results/reset-from-playwright');
+      if (resp.data.success && resp.data.stats) {
+        const s = resp.data.stats;
+        setStats({
+          totalTests: s.totalTests || 0,
+          passed: s.passed || 0,
+          failed: s.failed || 0,
+          skipped: s.skipped || 0,
+          successRate: s.successRate || 0,
+          averageDuration: s.averageDuration || 0
+        });
+        toast.success('Metrics reset from Playwright report');
+      } else {
+        await fetchResults();
+      }
+    } catch (e) {
+      console.error('Reset from Playwright failed:', e);
+      toast.error('Failed to reset from Playwright');
+      await fetchResults();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetKPIs = async () => {
+    try {
+      setLoading(true);
+      await api.post('/test-results/reset-kpis');
+      setStats({ totalTests: 0, passed: 0, failed: 0, skipped: 0, successRate: 0, averageDuration: 0 });
+      setAnalyticsData(null);
+      setRecentTests([]);
+      toast.success('KPI matrix cleared');
+    } catch (e) {
+      console.error('Failed to clear KPIs:', e);
+      toast.error('Failed to clear KPIs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerateApiReport = async () => {
+    try {
+      const response = await api.post('/test-results/generate-api-report');
+      if (response.data.success) {
+        toast.success('API report generated successfully');
+        window.open('http://localhost:5051/reports/api/index.html', '_blank');
+      } else {
+        toast.error('Failed to generate API report');
+      }
+    } catch (error) {
+      console.error('Error generating API report:', error);
+      toast.error('Failed to generate API report');
+    }
+  };
+
   if (loading) {
     return (
       <ResultsContainer>
@@ -590,17 +658,13 @@ const Results = () => {
           Test Results & Execution
         </Title>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <Button className="secondary" onClick={handleRefreshFromReports}>
+          <Button className="secondary" onClick={handleResetFromPlaywright}>
             <FiRefreshCw />
-            Refresh from Reports
+            Reset from Playwright
           </Button>
-          <Button className="secondary" onClick={handleCleanAndGenerateReports}>
-            <FiSettings />
-            Clean & Generate Reports
-          </Button>
-          <Button className="primary" onClick={handleRunAllTests}>
-            <FiPlay />
-            Run All Tests
+          <Button className="secondary" onClick={handleResetKPIs}>
+            <FiRefreshCw />
+            Clear KPIs
           </Button>
         </div>
       </Header>
@@ -711,22 +775,31 @@ const Results = () => {
             <ReportStatus available={reports?.api?.available}>
               {reports?.api?.available ? 'Available' : 'Not Available'}
             </ReportStatus>
-            <ReportButton
-              className="secondary"
-              onClick={handleGenerateAllureReport}
-              disabled={reports?.api?.available}
-            >
-              <FiDownload />
-              {reports?.api?.available ? 'View Report' : 'Generate'}
-            </ReportButton>
+            {reports?.api?.available ? (
+              <ReportButton
+                className="primary"
+                onClick={() => window.open(reports?.api?.path || 'http://localhost:5051/reports/api/index.html', '_blank')}
+              >
+                <FiDownload />
+                View Report
+              </ReportButton>
+            ) : (
+              <ReportButton
+                className="secondary"
+                onClick={handleGenerateApiReport}
+              >
+                <FiDownload />
+                Generate Report
+              </ReportButton>
+            )}
           </ReportCard>
         </ReportGrid>
       </ReportSection>
 
       <ReportSection>
-        <SectionTitle>Recent Tests</SectionTitle>
+        <SectionTitle>Recent Executed</SectionTitle>
         <div style={{ marginBottom: '16px', fontSize: '14px', color: '#7f8c8d' }}>
-          {recentTests.length} test available for execution
+          {recentTests.length} most recent executions
         </div>
         
         <TestList>
@@ -742,25 +815,12 @@ const Results = () => {
                     </span>
                   </div>
                   <div>
-                    Created: {test.createdAt.toLocaleDateString()} • 
-                    {test.completedAt ? ` Completed: ${test.completedAt.toLocaleDateString()}` : ' Running...'} • 
-                    {test.duration > 0 ? ` ${test.duration}ms` : ''} • 
-                    {test.files} file(s)
+                    Created: {test.createdAt.toLocaleString()} • 
+                    {test.completedAt ? ` Completed: ${test.completedAt.toLocaleString()}` : ' Running...'} • 
+                    {test.duration > 0 ? ` ${test.duration}ms` : ''}
                   </div>
                 </TestMeta>
               </TestInfo>
-              <TestActions>
-                <ActionButton className="secondary">
-                  <FiSettings />
-                </ActionButton>
-                <ActionButton
-                  className="primary"
-                  onClick={() => handleQuickRun(test.id)}
-                >
-                  <FiPlay />
-                  Quick Run
-                </ActionButton>
-              </TestActions>
             </TestItem>
           ))}
         </TestList>

@@ -90,8 +90,11 @@ class TestExecutor {
   }
 
   async launchBrowser(browserType, headless) {
-    // Set the browsers path to use local installation
-    process.env.PLAYWRIGHT_BROWSERS_PATH = path.resolve(__dirname, '../../node_modules/playwright-core/.local-browsers');
+    // Set the browsers path to use local installation, preferring env override
+    const projectRoot = path.resolve(__dirname, '../..');
+    if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
+      process.env.PLAYWRIGHT_BROWSERS_PATH = path.join(projectRoot, '.local-browsers');
+    }
     
     const browserMap = {
       'chromium': chromium,

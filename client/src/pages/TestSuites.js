@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
-import { FiPlus, FiPlay, FiBarChart2, FiSettings, FiTrash2, FiEdit3, FiRefreshCw, FiClipboard, FiBox, FiFileText, FiTag } from 'react-icons/fi';
+import { FiPlus, FiPlay, FiBarChart2, FiSettings, FiTrash2, FiEdit3, FiRefreshCw, FiClipboard, FiBox, FiFileText, FiTag, FiEye } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import api from '../config/axios';
+import TestSuiteDetails from '../components/TestSuiteDetails';
+import CreateTestSuiteModal from '../components/CreateTestSuiteModal';
+import EditTestSuiteModal from '../components/EditTestSuiteModal';
+import RunTestSuiteModal from '../components/RunTestSuiteModal';
 
 const TestSuitesContainer = styled.div`
   padding: 0;
@@ -54,7 +58,6 @@ const Header = styled.div`
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  background: white;
   border-bottom: 1px solid #e9ecef;
 `;
 
@@ -63,147 +66,89 @@ const Title = styled.h1`
   font-weight: 600;
   color: #2c3e50;
   margin: 0;
+`;
+
+const StatusIndicator = styled.div`
   display: flex;
   align-items: center;
-`;
-
-const TitleIcon = styled.span`
-  margin-right: 12px;
-  color: #007bff;
-`;
-
-const Button = styled.button`
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
+  gap: 8px;
+  color: #28a745;
   font-size: 14px;
   font-weight: 500;
+`;
+
+const StatusDot = styled.div`
+  width: 8px;
+  height: 8px;
+  background: #28a745;
+  border-radius: 50%;
+`;
+
+const RefreshButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
   cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  
+  &:hover {
+    background: #0056b3;
+  }
+`;
+
+const CreateButton = styled.button`
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: all 0.3s ease;
+  padding: 12px 20px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
   
-  &.primary {
-    background-color: #3498db;
-    color: white;
-    
-    &:hover {
-      background-color: #2980b9;
-    }
+  &:hover {
+    background: #0056b3;
   }
-  
-  &.secondary {
-    background-color: #95a5a6;
-    color: white;
-    
-    &:hover {
-      background-color: #7f8c8d;
-    }
-  }
-  
-  &.success {
-    background-color: #27ae60;
-    color: white;
-    
-    &:hover {
-      background-color: #229954;
-    }
-  }
-  
-  &.danger {
-    background-color: #e74c3c;
-    color: white;
-    
-    &:hover {
-      background-color: #c0392b;
-    }
-  }
-`;
-
-
-
-const TableContainer = styled.div`
-  padding: 0;
-`;
-
-const TableHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  background: white;
-  border-bottom: 1px solid #e9ecef;
-`;
-
-const TableTitle = styled.h2`
-  font-size: 18px;
-  font-weight: 600;
-  color: #2c3e50;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-`;
-
-const TableActions = styled.div`
-  display: flex;
-  gap: 12px;
 `;
 
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  background: white;
+  margin-top: 20px;
 `;
 
 const TableHead = styled.thead`
-  background-color: #f8f9fa;
+  background: #f8f9fa;
 `;
 
 const TableRow = styled.tr`
+  border-bottom: 1px solid #e9ecef;
+  
   &:hover {
-    background-color: #f8f9fa;
+    background: #f8f9fa;
   }
 `;
 
-const TableHeaderCell = styled.th`
-  padding: 16px 20px;
+const TableHeader = styled.th`
+  padding: 16px;
   text-align: left;
   font-weight: 600;
-  color: #495057;
+  color: #2c3e50;
   font-size: 14px;
-  border-bottom: 1px solid #dee2e6;
 `;
 
 const TableCell = styled.td`
-  padding: 16px 20px;
-  border-bottom: 1px solid #dee2e6;
-  font-size: 14px;
-  color: #495057;
+  padding: 16px;
   vertical-align: middle;
-  
-  &:last-child {
-    text-align: right;
-  }
-`;
-
-const Badge = styled.span`
-  display: inline-block;
-  padding: 6px 12px;
-  border-radius: 16px;
-  font-size: 12px;
-  font-weight: 500;
-  
-  &.blue {
-    background-color: #e3f2fd;
-    color: #1976d2;
-  }
-  
-  &.green {
-    background-color: #e8f5e8;
-    color: #2e7d32;
-  }
 `;
 
 const SuiteName = styled.div`
@@ -213,66 +158,92 @@ const SuiteName = styled.div`
 `;
 
 const SuiteDescription = styled.div`
-  font-size: 12px;
+  font-size: 11px;
   color: #6c757d;
+`;
+
+const Badge = styled.span`
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  
+  &.blue {
+    background: #e3f2fd;
+    color: #1976d2;
+  }
+  
+  &.green {
+    background: #e8f5e8;
+    color: #2e7d32;
+  }
 `;
 
 const SettingsInfo = styled.div`
-  font-size: 12px;
+  font-size: 11px;
   color: #6c757d;
+`;
+
+const ActionButton = styled.button`
   display: flex;
   align-items: center;
   gap: 4px;
-`;
-
-const ActionGroup = styled.div`
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: flex-end;
-`;
-
-
-
-const ActionButton = styled.button`
-  padding: 8px;
+  padding: 4px 8px;
   border: none;
-  background: none;
-  color: #7f8c8d;
-  cursor: pointer;
   border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  margin-right: 4px;
   
-  &:hover {
-    background-color: #ecf0f1;
-    color: #2c3e50;
+  &.success {
+    background: #28a745;
+    color: white;
+    
+    &:hover {
+      background: #1e7e34;
+    }
   }
   
-  &.danger:hover {
-    background-color: #e74c3c;
+  &.secondary {
+    background: #6c757d;
     color: white;
+    
+    &:hover {
+      background: #545b62;
+    }
+  }
+  
+  &.danger {
+    background: #dc3545;
+    color: white;
+    
+    &:hover {
+      background: #c82333;
+    }
+  }
+  
+  &.info {
+    background: #17a2b8;
+    color: white;
+    
+    &:hover {
+      background: #138496;
+    }
   }
 `;
 
 const EmptyState = styled.div`
   text-align: center;
   padding: 60px 20px;
-  color: #7f8c8d;
-`;
-
-const EmptyIcon = styled.div`
-  font-size: 48px;
-  margin-bottom: 16px;
-  color: #bdc3c7;
+  color: #6c757d;
 `;
 
 const EmptyTitle = styled.h3`
   font-size: 18px;
-  margin: 0 0 8px 0;
+  font-weight: 600;
   color: #2c3e50;
+  margin: 0 0 8px 0;
 `;
 
 const EmptyDescription = styled.p`
@@ -292,6 +263,17 @@ const TestSuites = () => {
     availableTags: 0
   });
   const [loading, setLoading] = useState(true);
+  
+  // Test Suite Details state
+  const [showTestSuiteDetails, setShowTestSuiteDetails] = useState(false);
+  const [selectedTestSuite, setSelectedTestSuite] = useState(null);
+  
+  // Modal states
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showRunModal, setShowRunModal] = useState(false);
+  const [editingTestSuite, setEditingTestSuite] = useState(null);
+  const [runningTestSuite, setRunningTestSuite] = useState(null);
 
   const tabs = [
     { id: 'OVERVIEW', label: 'OVERVIEW', icon: FiBarChart2 },
@@ -320,23 +302,8 @@ const TestSuites = () => {
   const fetchTestSuites = async () => {
     try {
       setLoading(true);
-      console.log('Fetching test suites...');
       const response = await api.get('/test-suites');
-      console.log('Test suites response:', response.data);
-      
-      // The API returns testSuites in the response.data.testSuites array
-      const testSuitesData = response.data.testSuites || [];
-      console.log('Setting test suites:', testSuitesData.length, 'items');
-      setTestSuites(testSuitesData);
-      
-      // Update stats with real data
-      setStats({
-        totalSuites: response.data.total || 0,
-        totalTests: response.data.generated || 0,
-        totalCollections: response.data.traditional || 0,
-        totalEnvironments: 4, // Keep this as is for now
-        availableTags: response.data.testSuites?.reduce((acc, suite) => acc + (suite.tags?.length || 0), 0) || 0
-      });
+      setTestSuites(response.data.testSuites || []);
     } catch (error) {
       console.error('Error fetching test suites:', error);
       toast.error('Failed to fetch test suites');
@@ -346,15 +313,35 @@ const TestSuites = () => {
   };
 
   const fetchStats = async () => {
-    // Stats are now fetched as part of fetchTestSuites
+    try {
+      const response = await api.get('/analytics/stats');
+      setStats(response.data || {});
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
   };
 
-  const handleDeleteTestSuite = async (suiteId) => {
-    if (window.confirm('Are you sure you want to delete this test suite?')) {
+  const handleViewTestSuite = (testSuite) => {
+    setSelectedTestSuite(testSuite);
+    setShowTestSuiteDetails(true);
+  };
+
+  const handleBackToList = () => {
+    setShowTestSuiteDetails(false);
+    setSelectedTestSuite(null);
+  };
+
+  const handleEditTestSuite = (testSuite) => {
+    setEditingTestSuite(testSuite);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteTestSuite = async (testSuite) => {
+    if (window.confirm(`Are you sure you want to delete "${testSuite.name}"?`)) {
       try {
-        await api.delete(`/test-suites/${suiteId}`);
-        setTestSuites(testSuites.filter(suite => suite.id !== suiteId));
+        await api.delete(`/test-suites/${testSuite._id}`);
         toast.success('Test suite deleted successfully');
+        fetchTestSuites();
       } catch (error) {
         console.error('Error deleting test suite:', error);
         toast.error('Failed to delete test suite');
@@ -362,262 +349,244 @@ const TestSuites = () => {
     }
   };
 
-  const handleCreateTestSuite = () => {
-    // For now, just show a message - you can implement a modal or redirect later
-    toast.info('Create Test Suite functionality will be implemented soon!');
+  const handleRunTestSuite = (testSuite) => {
+    setRunningTestSuite(testSuite);
+    setShowRunModal(true);
   };
 
-  const handleExecuteTestSuite = async (suiteId) => {
-    try {
-      // Find the test suite to get its details
-      const suite = testSuites.find(s => s.id === suiteId || s._id === suiteId);
-      
-      if (!suite) {
-        toast.error('Test suite not found');
-        return;
-      }
-      
-      // For generated tests, use the file path to run the test
-      if (suite.isGenerated && suite.relativePath) {
-        toast.success(`Running test: ${suite.name}`);
-        console.log('Executing generated test:', suite.relativePath);
-        
-        // You can add a modal or redirect to show test execution progress
-        // For now, just show a success message
-        toast.info('Test execution started. Check the terminal for progress.');
-      } else {
-        // For traditional test suites
-        const response = await api.post(`/test-suites/${suiteId}/execute`, {
-          environmentId: 'default'
-        });
-        
-        toast.success('Test execution started');
-        console.log('Execution started:', response.data);
-      }
-    } catch (error) {
-      console.error('Error executing test suite:', error);
-      toast.error('Failed to execute test suite');
-    }
+  const handleTestSuiteCreated = () => {
+    setShowCreateModal(false);
+    fetchTestSuites();
+    toast.success('Test suite created successfully');
   };
 
-  if (loading) {
+  const handleTestSuiteUpdated = () => {
+    setShowEditModal(false);
+    setEditingTestSuite(null);
+    fetchTestSuites();
+    toast.success('Test suite updated successfully');
+  };
+
+  const handleTestSuiteExecuted = () => {
+    setShowRunModal(false);
+    setRunningTestSuite(null);
+    toast.success('Test suite execution started');
+  };
+
+  if (showTestSuiteDetails && selectedTestSuite) {
     return (
-      <TestSuitesContainer>
-        <div style={{ textAlign: 'center', padding: '60px' }}>
-          <div>Loading test suites...</div>
-        </div>
-      </TestSuitesContainer>
+      <TestSuiteDetails
+        testSuite={selectedTestSuite}
+        onBack={handleBackToList}
+        onEdit={handleEditTestSuite}
+        onDelete={handleDeleteTestSuite}
+        onRun={handleRunTestSuite}
+      />
     );
   }
 
-  console.log('Current activeTab:', activeTab);
-  
   return (
     <TestSuitesContainer>
       <TabsContainer>
         <TabsList>
-          {tabs.map((tab) => {
-            const IconComponent = tab.icon;
-            return (
-              <Tab
-                key={tab.id}
-                $active={activeTab === tab.id}
-                onClick={() => {
-                  console.log('Switching to tab:', tab.id);
-                  setActiveTab(tab.id);
-                }}
-              >
-                <IconComponent size={16} />
-                {tab.label}
-              </Tab>
-            );
-          })}
+          {tabs.map((tab) => (
+            <Tab
+              key={tab.id}
+              $active={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              <tab.icon />
+              {tab.label}
+            </Tab>
+          ))}
         </TabsList>
+
+        <TabContent>
+          {activeTab === 'OVERVIEW' && (
+            <div style={{ padding: '20px' }}>
+              <h3>Overview</h3>
+              <p>Test suite overview and statistics will be displayed here.</p>
+            </div>
+          )}
+
+          {activeTab === 'TEST SUITES' && (
+            <div>
+              <Header>
+                <div>
+                  <Title>Test Suite Management</Title>
+                  <StatusIndicator>
+                    <StatusDot />
+                    • Connected
+                  </StatusIndicator>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <RefreshButton onClick={fetchTestSuites}>
+                    <FiRefreshCw />
+                    Refresh
+                  </RefreshButton>
+                  <CreateButton onClick={() => setShowCreateModal(true)}>
+                    <FiPlus />
+                    CREATE TEST SUITE
+                  </CreateButton>
+                </div>
+              </Header>
+
+              <div style={{ padding: '0 20px 20px' }}>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+                  <FiClipboard />
+                  Test Suites
+                </h3>
+
+                {loading ? (
+                  <div style={{ textAlign: 'center', padding: '40px' }}>
+                    Loading test suites...
+                  </div>
+                ) : testSuites.length === 0 ? (
+                  <EmptyState>
+                    <EmptyTitle>No Test Suites Found</EmptyTitle>
+                    <EmptyDescription>
+                      Create your first test suite to get started with automated testing.
+                    </EmptyDescription>
+                  </EmptyState>
+                ) : (
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableHeader>Name</TableHeader>
+                        <TableHeader>Environment</TableHeader>
+                        <TableHeader>Test Cases</TableHeader>
+                        <TableHeader>Tags</TableHeader>
+                        <TableHeader>Settings</TableHeader>
+                        <TableHeader>Actions</TableHeader>
+                      </TableRow>
+                    </TableHead>
+                    <tbody>
+                      {testSuites.map((suite) => (
+                        <TableRow key={suite._id}>
+                          <TableCell>
+                            <SuiteName>{suite.name}</SuiteName>
+                            <SuiteDescription>{suite.description || suite.name}</SuiteDescription>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className="blue">
+                              {suite.environment || 'ai_env'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {suite.testCount || suite.tests?.length || suite.testCases?.length || 0}
+                          </TableCell>
+                          <TableCell>
+                            {suite.tags && suite.tags.length > 0 ? (
+                              suite.tags.map((tag, index) => (
+                                <Badge key={index} className="green" style={{ marginRight: '4px' }}>
+                                  {tag}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span style={{ color: '#6c757d' }}>-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <SettingsInfo>
+                              chromium • {suite.type === 'custom' ? 'Headed' : 'Headless'}
+                            </SettingsInfo>
+                          </TableCell>
+                          <TableCell>
+                            <ActionButton 
+                              className="info" 
+                              onClick={() => handleViewTestSuite(suite)}
+                              title="View Details"
+                            >
+                              <FiEye />
+                              View
+                            </ActionButton>
+                            <ActionButton 
+                              className="success" 
+                              onClick={() => handleRunTestSuite(suite)}
+                              title="Run Test Suite"
+                            >
+                              <FiPlay />
+                              RUN
+                            </ActionButton>
+                            <ActionButton 
+                              className="secondary" 
+                              onClick={() => handleEditTestSuite(suite)}
+                              title="Edit Test Suite"
+                            >
+                              <FiEdit3 />
+                            </ActionButton>
+                            <ActionButton 
+                              className="danger" 
+                              onClick={() => handleDeleteTestSuite(suite)}
+                              title="Delete Test Suite"
+                            >
+                              <FiTrash2 />
+                            </ActionButton>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </tbody>
+                  </Table>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'COLLECTIONS' && (
+            <div style={{ padding: '20px' }}>
+              <h3>Collections</h3>
+              <p>Test collections management will be displayed here.</p>
+            </div>
+          )}
+
+          {activeTab === 'ALL TESTS' && (
+            <div style={{ padding: '20px' }}>
+              <h3>All Tests</h3>
+              <p>All individual tests will be displayed here.</p>
+            </div>
+          )}
+
+          {activeTab === 'TAGS' && (
+            <div style={{ padding: '20px' }}>
+              <h3>Tags</h3>
+              <p>Test tags management will be displayed here.</p>
+            </div>
+          )}
+        </TabContent>
       </TabsContainer>
 
-      <TabContent>
-        {activeTab === 'TEST SUITES' && (
-          <TableContainer>
-            <TableHeader>
-              <TableTitle>
-                <FiClipboard />
-                Test Management
-              </TableTitle>
-              <TableActions>
-                <Button 
-                  className="primary" 
-                  onClick={() => {
-                    console.log('Create Test Suite button clicked');
-                    handleCreateTestSuite();
-                  }}
-                  style={{ 
-                    backgroundColor: '#007bff', 
-                    color: 'white',
-                    padding: '12px 24px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    borderRadius: '6px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  <FiPlus size={16} />
-                  CREATE TEST SUITE
-                </Button>
-              </TableActions>
-            </TableHeader>
+      {/* Modals */}
+      {showCreateModal && (
+        <CreateTestSuiteModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onCreateTestSuite={handleTestSuiteCreated}
+        />
+      )}
 
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: '60px' }}>
-                <div>Loading test suites...</div>
-              </div>
-            ) : testSuites.length === 0 ? (
-              <EmptyState>
-                <EmptyIcon>
-                  <FiBarChart2 />
-                </EmptyIcon>
-                <EmptyTitle>No test suites found</EmptyTitle>
-                <EmptyDescription>
-                  Create your first test suite to organize your tests
-                </EmptyDescription>
-              </EmptyState>
-            ) : (
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableHeaderCell>Name</TableHeaderCell>
-                    <TableHeaderCell>Environment</TableHeaderCell>
-                    <TableHeaderCell>Test Cases</TableHeaderCell>
-                    <TableHeaderCell>Tags</TableHeaderCell>
-                    <TableHeaderCell>Settings</TableHeaderCell>
-                    <TableHeaderCell>Actions</TableHeaderCell>
-                  </TableRow>
-                </TableHead>
-                <tbody>
-                  {testSuites.map((suite) => (
-                    <TableRow key={suite._id}>
-                      <TableCell>
-                        <SuiteName>{suite.name}</SuiteName>
-                        <SuiteDescription>{suite.description || suite.name}</SuiteDescription>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className="blue">
-                          {suite.environment || 'ai_env'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {suite.testCount || suite.tests?.length || suite.testCases?.length || 0}
-                      </TableCell>
-                      <TableCell>
-                        {suite.tags && suite.tags.length > 0 ? (
-                          suite.tags.map((tag, index) => (
-                            <Badge key={index} className="green" style={{ marginRight: '4px' }}>
-                              {tag}
-                            </Badge>
-                          ))
-                        ) : (
-                          <span style={{ color: '#6c757d' }}>-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <SettingsInfo>
-                          chromium • {suite.type === 'custom' ? 'Headed' : 'Headless'}
-                        </SettingsInfo>
-                      </TableCell>
-                      <TableCell>
-                        <ActionGroup>
-                          <Button className="success" style={{ padding: '6px 12px', fontSize: '12px' }}>
-                            <FiPlay style={{ fontSize: '12px' }} />
-                            RUN
-                          </Button>
-                          <ActionButton
-                            onClick={() => {/* Edit functionality */}}
-                            title="Edit Test Suite"
-                          >
-                            <FiEdit3 />
-                          </ActionButton>
-                          <ActionButton
-                            onClick={() => handleDeleteTestSuite(suite._id)}
-                            title="Delete Test Suite"
-                            className="danger"
-                          >
-                            <FiTrash2 />
-                          </ActionButton>
-                        </ActionGroup>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </tbody>
-              </Table>
-            )}
-          </TableContainer>
-        )}
-        
-        {activeTab === 'OVERVIEW' && (
-          <TableContainer>
-            <div style={{ textAlign: 'center', padding: '60px' }}>
-              <EmptyIcon>
-                <FiBarChart2 />
-              </EmptyIcon>
-              <EmptyTitle>Overview</EmptyTitle>
-              <EmptyDescription>
-                Overview content will be displayed here
-              </EmptyDescription>
-            </div>
-          </TableContainer>
-        )}
-        
-        {activeTab === 'COLLECTIONS' && (
-          <TableContainer>
-            <div style={{ textAlign: 'center', padding: '60px' }}>
-              <EmptyIcon>
-                <FiBarChart2 />
-              </EmptyIcon>
-              <EmptyTitle>Collections</EmptyTitle>
-              <EmptyDescription>
-                Collections content will be displayed here
-              </EmptyDescription>
-            </div>
-          </TableContainer>
-        )}
-        
-        {activeTab === 'ALL TESTS' && (
-          <TableContainer>
-            <TableHeader>
-              <TableTitle>
-                <FiFileText />
-                All Tests
-              </TableTitle>
-            </TableHeader>
-            <div style={{ textAlign: 'center', padding: '60px' }}>
-              <EmptyIcon>
-                <FiFileText />
-              </EmptyIcon>
-              <EmptyTitle>All Tests</EmptyTitle>
-              <EmptyDescription>
-                View and manage all generated test files across all test suites
-              </EmptyDescription>
-            </div>
-          </TableContainer>
-        )}
-        
-        {activeTab === 'TAGS' && (
-          <TableContainer>
-            <div style={{ textAlign: 'center', padding: '60px' }}>
-              <EmptyIcon>
-                <FiBarChart2 />
-              </EmptyIcon>
-              <EmptyTitle>Tags</EmptyTitle>
-              <EmptyDescription>
-                Tags content will be displayed here
-              </EmptyDescription>
-            </div>
-          </TableContainer>
-        )}
-      </TabContent>
+      {showEditModal && editingTestSuite && (
+        <EditTestSuiteModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingTestSuite(null);
+          }}
+          testSuite={editingTestSuite}
+          onSave={handleTestSuiteUpdated}
+        />
+      )}
+
+      {showRunModal && runningTestSuite && (
+        <RunTestSuiteModal
+          isOpen={showRunModal}
+          onClose={() => {
+            setShowRunModal(false);
+            setRunningTestSuite(null);
+          }}
+          testSuite={runningTestSuite}
+          onExecute={handleTestSuiteExecuted}
+        />
+      )}
     </TestSuitesContainer>
   );
 };

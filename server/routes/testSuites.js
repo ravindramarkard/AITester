@@ -455,3 +455,116 @@ router.delete('/:id', async (req, res) => {
 });
 
 module.exports = router;
+// Schedule management endpoints
+const schedulerService = require('../services/SchedulerService');
+
+// Create or update schedule for a test suite
+router.post('/:id/schedule', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { cron, enabled, environmentId, headless, workers } = req.body;
+
+    if (!cron) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Cron expression is required' 
+      });
+    }
+
+    if (!environmentId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Environment ID is required' 
+      });
+    }
+
+    const scheduleConfig = {
+      cron,
+      enabled: enabled !== false,
+      environmentId,
+      headless: headless !== false,
+      workers: workers || 1
+    };
+
+    await schedulerService.updateSchedule(id, scheduleConfig);
+
+    res.json({
+      success: true,
+      message: 'Schedule saved successfully',
+      schedule: scheduleConfig
+    });
+  } catch (error) {
+    console.error('Error saving schedule:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to save schedule',
+      message: error.message
+    });
+  }
+});
+
+// Get schedule for a test suite
+router.get('/:id/schedule', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const testSuites = await fileStorage.getTestSuites();
+    const testSuite = testSuites.find(ts => ts._id === id || ts.id === id);
+
+    if (!testSuite) {
+      return res.status(404).json({
+        success: false,
+        error: 'Test suite not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      schedule: testSuite.schedule || null
+    });
+  } catch (error) {
+    console.error('Error fetching test suite schedule:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch test suite schedule', message: error.message });
+  }
+});
+
+// Delete schedule for a test suite
+router.delete('/:id/schedule', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    await schedulerService.deleteSchedule(id);
+
+    res.json({
+      success: true,
+      message: 'Schedule deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting schedule:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete schedule',
+      message: error.message
+    });
+  }
+});
+
+// Get all active schedules
+router.get('/schedules/all', async (req, res) => {
+  try {
+    const activeSchedules = schedulerService.getActiveSchedules();
+    
+    res.json({
+      success: true,
+      schedules: activeSchedules
+    });
+  } catch (error) {
+    console.error('Error fetching schedules:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch schedules',
+      message: error.message
+    });
+  }
+});
+
+module.exports = router;

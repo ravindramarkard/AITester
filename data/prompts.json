@@ -1886,7 +1886,7 @@
     "_id": "861bb60f-38af-4c4d-8d1b-f3f1db4d62d1",
     "title": "Test Case  : Create a case with Collaborators assigned ",
     "description": "Test Case  : Create a case with Collaborators assigned ",
-    "promptContent": "Test Case  : Create a case with Collaborators assigned \n1. Navigate to given url\n2. Type username piyush.safaya into Username placeholder field\n3. Type password piyush1234 into Password placeholder field\n4. Click on Log in button\n5. Wait for page load \"cases\"\n6. Click on Create New Case button\n7. Type test case Auto-Sept2.1 into enter case name placeholder\n8. Type Description \"Automation Desc\" into enter description placeholder\n 9. Click on placeholder \"Type to search for user\"\n10. Enter Ravindra.markard and select from list\n11. Click on Add Button\n12. Click on Save button\n13. Verify created case available in list",
+    "promptContent": "Test Case  : Create a case with Collaborators assigned \n1. Navigate to given url\n2. Type username piyush.safaya into Username placeholder field\n3. Type password piyush1234 into Password placeholder field\n4. Click on Log in button\n5. Wait for page load \"cases\"\n6. Click on Create New Case button\n7. Type test case Auto-Sept2.1 into enter case name placeholder\n8. Type Description \"Automation Desc\" into enter description placeholder\n 9. Click on Dropdown \n10. Fill ravindra.markard\n11. Click on Add Button\n12. Click on Save button\n13. Verify created case available in list",
     "testType": "UI Test",
     "tags": [
       "smoke"
@@ -1985,18 +1985,18 @@
         },
         {
           "stepNumber": 10,
-          "originalText": "9. Click on placeholder \"Type to search for user\"",
+          "originalText": "9. Click on Dropdown",
           "action": "click",
-          "target": "input",
+          "target": "dropdown",
           "value": null,
           "assertion": null,
           "waitTime": null
         },
         {
           "stepNumber": 11,
-          "originalText": "10. Enter Ravindra.markard and select from list",
-          "action": "click",
-          "target": "dropdown",
+          "originalText": "10. Fill ravindra.markard",
+          "action": "fill",
+          "target": "10. ravindra.markard",
           "value": null,
           "assertion": null,
           "waitTime": null
@@ -2029,9 +2029,347 @@
           "waitTime": null
         }
       ],
-      "timestamp": "2025-09-24T05:18:48.951Z"
+      "timestamp": "2025-09-25T05:21:36.609Z"
     },
     "createdAt": "2025-09-22T12:56:48.063Z",
-    "updatedAt": "2025-09-24T05:18:48.951Z"
+    "updatedAt": "2025-09-25T05:21:36.609Z"
+  },
+  {
+    "_id": "43729306-9069-4734-a09e-683ec12f8d45",
+    "title": "dynamic case",
+    "description": "dynamic case",
+    "promptContent": "Test Case  : Create a case with Collaborators assigned \n1. Navigate to given url\n2. Type username piyush.safaya into Username placeholder field\n3. Type password piyush1234 into Password placeholder field\n4. Click on Log in button\n5. Wait for page load \"cases\"\n6. Click on Create New Case button\n7. fill all form and select from dropdown ravindra.markard",
+    "testType": "UI Test",
+    "tags": [
+      "frontend",
+      "login"
+    ],
+    "additionalContext": "",
+    "baseUrl": "https://staging-shaheen.dev.g42a.ae/",
+    "additionalInformation": "",
+    "projectId": "default-project",
+    "modelId": "default-model",
+    "modelName": "Default Model",
+    "promptId": "88560f85-a360-435b-b273-c8a44a2fb781",
+    "status": "draft",
+    "generatedTests": [],
+    "metadata": {
+      "parsedSteps": [
+        {
+          "stepNumber": 1,
+          "originalText": "Test Case  : Create a case with Collaborators assigned",
+          "action": "unknown",
+          "target": "Test Case Create case with Collaborators assigned",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 2,
+          "originalText": "1. Navigate to given url",
+          "action": "navigate",
+          "target": "Navigate given url",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 3,
+          "originalText": "2. Type username piyush.safaya into Username placeholder field",
+          "action": "fill",
+          "target": "input",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 4,
+          "originalText": "3. Type password piyush1234 into Password placeholder field",
+          "action": "fill",
+          "target": "input",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 5,
+          "originalText": "4. Click on Log in button",
+          "action": "click",
+          "target": "button",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 6,
+          "originalText": "5. Wait for page load \"cases\"",
+          "action": "wait",
+          "target": "cases",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 7,
+          "originalText": "6. Click on Create New Case button",
+          "action": "click",
+          "target": "button",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 8,
+          "originalText": "7. fill all form and select from dropdown ravindra.markard",
+          "action": "click",
+          "target": "dropdown",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        }
+      ],
+      "timestamp": "2025-09-24T12:18:42.411Z"
+    },
+    "createdAt": "2025-09-24T11:21:36.032Z",
+    "updatedAt": "2025-09-24T12:18:42.412Z"
+  },
+  {
+    "_id": "406fb027-8731-4cd4-9f8b-8d7e455f3f47",
+    "title": "Test Case  : Create a case and upload a file",
+    "description": "Test Case  : Create a case  and upload a file",
+    "promptContent": "1.Navigate to given url\n2.Type username piyush.safaya into Username placeholder field\n3.Type password piyush1234 into Password placeholder field\n4.Click on Log in button\n5. Wait for page load \"cases\"\n6. Click on Create New Case button\n7. Type test case Auto-Sept2 into enter case name placeholder\n8. Type Description \"Automation Desc\" into enter description placeholder\n9. Click on Save Button\n10. Verify created case available in list\n11. Double click on has text with  “Auto-Sept2” and it second position\n12. Double click on has text with  “Class” \n13. Click on Upload button\n14. Upload a file from : /Users/ravindra.markard/Downloads/flight.jpeg\n15. Click on upload button",
+    "testType": "UI Test",
+    "tags": [
+      "smoke"
+    ],
+    "additionalContext": "",
+    "baseUrl": "https://staging-shaheen.dev.g42a.ae/",
+    "additionalInformation": "",
+    "projectId": "default-project",
+    "modelId": "default-model",
+    "modelName": "Default Model",
+    "promptId": "6d2a2ffc-061d-4db1-a964-f615b2e0fe11",
+    "status": "draft",
+    "generatedTests": [],
+    "metadata": {
+      "parsedSteps": [
+        {
+          "stepNumber": 1,
+          "originalText": "1.Navigate to given url",
+          "action": "navigate",
+          "target": "1.Navigate given url",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 2,
+          "originalText": "2.Type username piyush.safaya into Username placeholder field",
+          "action": "fill",
+          "target": "input",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 3,
+          "originalText": "3.Type password piyush1234 into Password placeholder field",
+          "action": "fill",
+          "target": "input",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 4,
+          "originalText": "4.Click on Log in button",
+          "action": "click",
+          "target": "button",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 5,
+          "originalText": "5. Wait for page load \"cases\"",
+          "action": "wait",
+          "target": "cases",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 6,
+          "originalText": "6. Click on Create New Case button",
+          "action": "click",
+          "target": "button",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 7,
+          "originalText": "7. Type test case Auto-Sept2 into enter case name placeholder",
+          "action": "fill",
+          "target": "test case Auto-Sept2 into case name placeholder",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 8,
+          "originalText": "8. Type Description \"Automation Desc\" into enter description placeholder",
+          "action": "fill",
+          "target": "Automation Desc",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 9,
+          "originalText": "9. Click on Save Button",
+          "action": "click",
+          "target": "button",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 10,
+          "originalText": "10. Verify created case available in list",
+          "action": "assert",
+          "target": "dropdown",
+          "value": null,
+          "assertion": "created case available in list",
+          "waitTime": null
+        },
+        {
+          "stepNumber": 11,
+          "originalText": "11. Double click on has text with  “Auto-Sept2” and it second position",
+          "action": "click",
+          "target": "text",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 12,
+          "originalText": "12. Double click on has text with  “Class”",
+          "action": "click",
+          "target": "text",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 13,
+          "originalText": "13. Click on Upload button",
+          "action": "click",
+          "target": "button",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 14,
+          "originalText": "14. Upload a file from : /Users/ravindra.markard/Downloads/flight.jpeg",
+          "action": "upload",
+          "target": "14. Upload file from /Users/ravindra.markard/Downloads/flight.jpeg",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 15,
+          "originalText": "15. Click on upload button",
+          "action": "click",
+          "target": "button",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        }
+      ],
+      "timestamp": "2025-09-29T07:00:46.615Z"
+    },
+    "createdAt": "2025-09-25T05:34:27.068Z",
+    "updatedAt": "2025-09-29T07:00:46.616Z"
+  },
+  {
+    "_id": "1ce7ddd9-16c8-46a1-9259-17d629c5c8a0",
+    "title": "Default Case",
+    "description": "Default Case",
+    "promptContent": "1.Navigate to given url\n2.Type username piyush.safaya into Username placeholder field\n3.Type password piyush1234 into Password placeholder field\n4.Click on Log in button\n5. Wait for page load \"cases\"\n7. Double click on Default Case where it first postion card",
+    "testType": "UI Test",
+    "tags": [],
+    "additionalContext": "",
+    "baseUrl": "https://staging-shaheen.dev.g42a.ae/",
+    "additionalInformation": "",
+    "projectId": "default-project",
+    "modelId": "default-model",
+    "modelName": "Default Model",
+    "promptId": "5b59dd50-814b-4f25-9e21-1ede4296248d",
+    "status": "draft",
+    "generatedTests": [],
+    "metadata": {
+      "parsedSteps": [
+        {
+          "stepNumber": 1,
+          "originalText": "1.Navigate to given url",
+          "action": "navigate",
+          "target": "1.Navigate given url",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 2,
+          "originalText": "2.Type username piyush.safaya into Username placeholder field",
+          "action": "fill",
+          "target": "input",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 3,
+          "originalText": "3.Type password piyush1234 into Password placeholder field",
+          "action": "fill",
+          "target": "input",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 4,
+          "originalText": "4.Click on Log in button",
+          "action": "click",
+          "target": "button",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 5,
+          "originalText": "5. Wait for page load \"cases\"",
+          "action": "wait",
+          "target": "cases",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 6,
+          "originalText": "7. Double click on Default Case where it first postion card",
+          "action": "click",
+          "target": "Double Default Case where first postion card",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        }
+      ],
+      "timestamp": "2025-09-29T09:57:11.232Z"
+    },
+    "createdAt": "2025-09-29T08:35:33.620Z",
+    "updatedAt": "2025-09-29T09:57:11.233Z"
   }
 ]

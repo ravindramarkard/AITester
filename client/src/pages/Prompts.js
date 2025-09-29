@@ -656,7 +656,7 @@ const Prompts = () => {
       } else {
         // Use template-based generation (no LLM)
         response = await api.post(`/prompts/${promptId}/generate-test`, {
-          testName: `Generated from ${prompt?.title}`,
+          testName: prompt?.title,
           environmentId: null,
           options: {
             useLLM: false,

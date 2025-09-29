@@ -317,7 +317,7 @@ Return only the enhanced Playwright test code, no explanations or markdown forma
     if (includeAllureReport && addTestDescription) {
       content += `    allure.description('Automated test generated from AI prompt with ${steps.length} steps');\n`;
       content += `    allure.severity('normal');\n`;
-      content += `    allure.owner('AI Test Generator');\n\n`;
+      content += `    allure.owner('AI TestGen');\n\n`;
     }
     
     // Auto-navigate to base URL at test start
@@ -780,6 +780,9 @@ async function handleTestCleanup(page, testInfo) {
     if (typeof content === 'string') {
       try {
         content = content.replace(/\)\.tags\(([^)]*)\);/g, ');');
+        content = content.replace(/\)\.description\(([^)]*)\);/g, ');');
+        // Remove stray trailing dots after a block close
+        content = content.replace(/\n\s*\}\)\s*\.?\s*\n/g, '\n});\n');
       } catch (_) {}
     }
     await fs.writeFile(filePath, content, 'utf8');

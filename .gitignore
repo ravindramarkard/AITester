@@ -70,3 +70,12 @@ server/.playwright-browsers/
 #client/build/
 #local-browsers/
 .local-browsers/
+.playwright-browsers/
+
+# Playwright browsers - too large for GitHub
+server/.playwright-browsers/
+.playwright-browsers/
+**/chromium-*/
+**/chrome-mac/
+**/*headless_shell*
+**/*Chromium Framework*

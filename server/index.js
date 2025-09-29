@@ -39,7 +39,7 @@ const apiTestGeneratorRoutes = require('./routes/apiTestGenerator');
 const domAnalyzerRoutes = require('./routes/domAnalyzer');
 const apiTestExecutionRoutes = require('./routes/apiTestExecution');
 const dashboardRoutes = require('./routes/dashboard');
-
+const testGenRoutes = require('./routes/testGen');
 const app = express();
 const PORT = process.env.PORT || 5051;
 
@@ -49,7 +49,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve static files from React build
-app.use(express.static(path.join(__dirname, '../client/build')));
+// app.use(express.static(path.join(__dirname, '../client/build')));
 
 // Serve report files
 app.use('/reports', express.static(path.join(__dirname, 'reports')));
@@ -69,7 +69,7 @@ app.use('/api/api-test-generator', apiTestGeneratorRoutes);
 app.use('/api/dom-analyzer', domAnalyzerRoutes);
 app.use('/api/api-test-execution', apiTestExecutionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-
+app.use('/api/test-gen', testGenRoutes);
 // API endpoint to fetch test files
 app.get('/api/test-files', (req, res) => {
   try {
@@ -112,14 +112,16 @@ app.get('/api/test-files', (req, res) => {
     }
     
     if (type === 'ui' || type === 'all') {
-      // Look for UI tests in both generated and projects directories
+      // Look for UI tests in generated, root tests directory, and projects directories
       const uiTestsPattern = path.join(testsDir, '**/*.spec.ts');
+      const rootTestsPattern = path.join(__dirname, '../tests/*.spec.ts');
       const projectsTestsPattern = path.join(__dirname, '../tests/projects/**/*.spec.ts');
       
       const uiFiles = [
         ...glob.sync(uiTestsPattern).filter(file => 
           !file.includes('api-tests') && file.endsWith('.spec.ts')
         ),
+        ...glob.sync(rootTestsPattern),
         ...glob.sync(projectsTestsPattern)
       ];
       
@@ -185,11 +187,13 @@ app.get('/api/test-files/:id/content', (req, res) => {
     // Find the test file by ID
     const apiTestsPattern = path.join(testsDir, 'api-tests', '**/*.spec.ts');
     const uiTestsPattern = path.join(testsDir, '**/*.spec.ts');
+    const rootTestsPattern = path.join(__dirname, '../tests/*.spec.ts');
     const projectsTestsPattern = path.join(__dirname, '../tests/projects/**/*.spec.ts');
 
     const allFiles = [
       ...glob.sync(apiTestsPattern),
       ...glob.sync(uiTestsPattern).filter(file => !file.includes('api-tests')),
+      ...glob.sync(rootTestsPattern),
       ...glob.sync(projectsTestsPattern)
     ];
 
@@ -243,11 +247,13 @@ app.put('/api/test-files/:id/content', (req, res) => {
     const apiTestsPattern = path.join(testsDir, 'api-tests', '**/*.spec.ts');
     const uiTestsPattern = path.join(testsDir, '**/*.spec.ts');
     const projectsTestsPattern = path.join(__dirname, '../tests/projects/**/*.spec.ts');
+    const rootTestsPattern = path.join(__dirname, '../tests/*.spec.ts');
 
     const allFiles = [
       ...glob.sync(apiTestsPattern),
       ...glob.sync(uiTestsPattern).filter(file => !file.includes('api-tests')),
-      ...glob.sync(projectsTestsPattern)
+      ...glob.sync(projectsTestsPattern),
+      ...glob.sync(rootTestsPattern)
     ];
 
     let testFile = null;
@@ -412,10 +418,14 @@ app.get('/favicon.ico', (req, res) => {
   res.status(204).end();
 });
 
-// Serve React app for all non-API routes (only when build exists)
+// Serve React app for all non-API and non-report routes (only when build exists)
 const buildIndexPath = path.join(__dirname, '../client/build', 'index.html');
 if (process.env.NODE_ENV === 'production' || require('fs').existsSync(buildIndexPath)) {
   app.get('*', (req, res) => {
+    // Don't serve React app for /reports/* paths - let static middleware handle them
+    if (req.path.startsWith('/reports/')) {
+      return res.status(404).send('Report not found');
+    }
     res.sendFile(buildIndexPath);
   });
 }

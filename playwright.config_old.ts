@@ -192,7 +192,7 @@ export default defineConfig({
       testDir: './server/tests',
       use: {
         // API base URL for request fixtures
-        baseURL: process.env.API_URL || 'https://fakerestapi.azurewebsites.net',
+        baseURL: process.env.API_URL || environment?.variables.API_URL,
         // Longer timeouts for API tests
         actionTimeout: parseInt(process.env.API_ACTION_TIMEOUT || '30000'),
         navigationTimeout: parseInt(process.env.API_NAVIGATION_TIMEOUT || '30000'),
@@ -210,7 +210,7 @@ export default defineConfig({
         video: 'off',
         // Enhanced headers for API testing
         extraHTTPHeaders: {
-          'Authorization': `${process.env.TOKEN_TYPE || 'Bearer'} ${process.env.ACCESS_TOKEN || ''}`,
+          'Authorization': `Bearer ${environment?.variables.ACCESS_TOKEN}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'User-Agent': 'Playwright-API-Tests',

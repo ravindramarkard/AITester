@@ -9,11 +9,11 @@
       "API_URL": "https://p-tray.dev.g42a.ae",
       "USERNAME": "piyush.safaya",
       "PASSWORD": "piyush1234",
-      "TIMEOUT": "30000",
+      "TIMEOUT": 299998,
       "BROWSER": "chromium",
       "HEADLESS": false,
       "RETRIES": 1,
-      "API_TOKEN": "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJaYS1qaUdab1JDTkxoazZUUkZ1WUY5bEVpbW9ncXhVOE91Ulpoak5VMmZFIn0.eyJleHAiOjE3NTg1NTA2ODksImlhdCI6MTc1ODU0MzQ4OSwianRpIjoiMDJiODg1NmUtNDE0ZS00OTQxLWI2YzgtMWJhMGRlZTJhODIzIiwiaXNzIjoiaHR0cHM6Ly9rZXljbG9hay5kZXYuZzQyYS5hZS9hdXRoL3JlYWxtcy9nNDJhIiwic3ViIjoiZjcxZTE5ZTgtODNjMS00ZGI2LWFlY2MtMTM3YmU1YTEwZmQxIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoic2hhaGVlbiIsInNlc3Npb25fc3RhdGUiOiIwYjgyYzkxZi00MWY4LTRiZjctOGU2YS0yOWJkMzAyNGZiZWMiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbIioiXSwicmVzb3VyY2VfYWNjZXNzIjp7ImNhc2UtYXBwIjp7InJvbGVzIjpbInNoYWhlZW5fZnVsbF9zY29wZV9jb2xsYWIiXX19LCJzY29wZSI6Im9wZW5pZCBwcm9maWxlIiwiZ3JvdXBzX3BhdGgiOlsiL2c0MmFfZGVmYXVsdC9HNDIgLSBET05UIENIQU5HRS9IZXJjdWxlcyJdLCJyb2xlcyI6WyJnNDJhX2Y3MWUxOWU4LTgzYzEtNGRiNi1hZWNjLTEzN2JlNWExMGZkMV91c2VyX3JvbGUiLCJnNDJhX2Y3MWUxOWU4LTgzYzEtNGRiNi1hZWNjLTEzN2JlNWExMGZkMV91c2VyX3JvbGUiLCJnNDJhX2Y3MWUxOWU4LTgzYzEtNGRiNi1hZWNjLTEzN2JlNWExMGZkMV91c2VyX3JvbGUiLCJzaGFoZWVuX3NldCIsInNoYWhlZW5fbGluayIsInNoYWhlZW5fY2hhdCIsInNoYWhlZW5fZGF0YV9zb3VyY2UiLCJzaGFoZWVuX3NldHRpbmdzIiwic2hhaGVlbl9wcm9maWxlIiwic2hhaGVlbl9tYXAiLCJzaGFoZWVuX3NlYXJjaCIsInNoYWhlZW5fY2FzZSIsInNoYWhlZW5fdXBsb2FkIl0sIm5hbWUiOiJOaXRpc2ggU2hhcm1hIiwiZ3JvdXBzIjpbIkhlcmN1bGVzIl0sInByZWZlcnJlZF91c2VybmFtZSI6Im5pdGlzaC5zaGFybWEiLCJnaXZlbl9uYW1lIjoiTml0aXNoIiwiZmFtaWx5X25hbWUiOiJTaGFybWEifQ.YyKF3Wkf5w1-DzzAgxeqL5xamc4_t8bs9skGi3CXfLVj5Z3KnVWfnzINn2UFE4MQvM8qbs-KYh-2Punm0i3HSEpSt2J0gWARB4uWFC-V2Yf-aMlcPEyQ-rWbqdtVa3tO8lTMu8IShc4-HRiJBbzoA8sJEytQtStUU5JXZAo2xnPeQcNSH0_wd8m2aaOi8XIQAac0WdcWvIGdNlS9fb2atY1afwfY93HxTyEwAdBqAcW8ULDDyOzxH0L0je_7tYPDhCKzMdA3B8VV_Sh0WrmSmDSPNqI8eTUH-VgKYdzw9fwXWXmp6N_HYCcO-mEGcWq_76H-jbxHMQ9WVTnb0c6azA"
+      "API_TOKEN": "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJaYS1qaUdab1JDTkxoazZUUkZ1WUY5bEVpbW9ncXhVOE91Ulpoak5VMmZFIn0.eyJleHAiOjE3NTkxNDI2NzEsImlhdCI6MTc1OTEzNTQ3MSwianRpIjoiMWYwZGVhMWQtODg0NS00YzY0LWJkYzYtNzNjNWFlOTFiNjBkIiwiaXNzIjoiaHR0cHM6Ly9rZXljbG9hay5kZXYuZzQyYS5hZS9hdXRoL3JlYWxtcy9nNDJhIiwic3ViIjoiYjkwYzg5ODItYmRhOC00YzBmLWE4OWMtMjNkZjUzZDNjZjY0IiwidHlwIjoiQmVhcmVyIiwiYXpwIjoic2hhaGVlbiIsInNlc3Npb25fc3RhdGUiOiI5YWZjMDg2Yi1mMGRkLTQ4NTAtYTNiZS0zYzc2YzI4NTUyYWMiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbIioiXSwicmVzb3VyY2VfYWNjZXNzIjp7ImNhc2UtYXBwIjp7InJvbGVzIjpbImFkbWluIl19fSwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSIsImRhdGFfcm9sZXMiOlsiZGFuYV91aV9hZG1pbiIsImFkbWluIl0sImdyb3Vwc19wYXRoIjpbIi9nNDJhX2RlZmF1bHQvRzQyIC0gRE9OVCBDSEFOR0UvSGVyY3VsZXMiLCIvZzQyYV9kZWZhdWx0L1pldXMiLCIvZzQyYV9kZWZhdWx0L0c0MiAtIERPTlQgQ0hBTkdFL1pldXMiXSwicm9sZXMiOlsiZzQyYV9iOTBjODk4Mi1iZGE4LTRjMGYtYTg5Yy0yM2RmNTNkM2NmNjRfdXNlcl9yb2xlIiwiZzQyYV9waXl1c2guc2FmYXlhX3VzZXJfcm9sZSIsImc0MmFfYjkwYzg5ODItYmRhOC00YzBmLWE4OWMtMjNkZjUzZDNjZjY0X3VzZXJfcm9sZSIsImc0MmFfcGl5dXNoLnNhZmF5YV91c2VyX3JvbGUiLCJnNDJhX2I5MGM4OTgyLWJkYTgtNGMwZi1hODljLTIzZGY1M2QzY2Y2NF91c2VyX3JvbGUiLCJnNDJhX3BpeXVzaC5zYWZheWFfdXNlcl9yb2xlIiwic2hhaGVlbl9zZXQiLCJzaGFoZWVuX2xpbmsiLCJzaGFoZWVuX2NoYXQiLCJzaGFoZWVuX2RhdGFfc291cmNlIiwic2hhaGVlbl9zZXR0aW5ncyIsInNoYWhlZW5fcHJvZmlsZSIsInNoYWhlZW5fbWFwIiwic2hhaGVlbl9wYWdlX21vZHVsZSIsInNoYWhlZW5fY2FzZSIsInNoYWhlZW5fc2VhcmNoIiwic2hhaGVlbl91cGxvYWQiXSwibmFtZSI6IlBpeXVzaCBTYWZheWEiLCJncm91cHMiOlsiSGVyY3VsZXMiLCJaZXVzIiwiWmV1cyJdLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJwaXl1c2guc2FmYXlhIiwiZ2l2ZW5fbmFtZSI6IlBpeXVzaCIsImZhbWlseV9uYW1lIjoiU2FmYXlhIn0.M1i6fnL2kHjs9kX2noCIFKnwneoZO1NXS3gR7G2pbTmzRp2N6tUWw0ORQvmt3-uhXGfnVpueTmywSfZwogk9bAdbxNtUTirB-Z93B0TOK9lqgYaeuUHfdQrj4s3IAWe_hSCk9mn7tj47H8I4AGfXrJmVU1fogH13yMAAfZnPI2ATtqdQpMONPX3ZEON55ZIVCr0zgMXmKVERaSmeY_WSY_C5jyEMjt7os5N_2bCMHoCgp1R0yNPLjODeF3Ze1igvoMBubsP0zkgCgr2S8zAOY-pGYrhiKYCN6qZw7f6jAYaZHOIl1IkVQGM8URYVxIzzrVihvamULscqmI-qGwskFA"
     },
     "jiraIntegration": {
       "enabled": false,
@@ -34,9 +34,9 @@
     "authorization": {
       "enabled": true,
       "type": "oauth2",
-      "token": "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJaYS1qaUdab1JDTkxoazZUUkZ1WUY5bEVpbW9ncXhVOE91Ulpoak5VMmZFIn0.eyJleHAiOjE3NTg1NTA2ODksImlhdCI6MTc1ODU0MzQ4OSwianRpIjoiMDJiODg1NmUtNDE0ZS00OTQxLWI2YzgtMWJhMGRlZTJhODIzIiwiaXNzIjoiaHR0cHM6Ly9rZXljbG9hay5kZXYuZzQyYS5hZS9hdXRoL3JlYWxtcy9nNDJhIiwic3ViIjoiZjcxZTE5ZTgtODNjMS00ZGI2LWFlY2MtMTM3YmU1YTEwZmQxIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoic2hhaGVlbiIsInNlc3Npb25fc3RhdGUiOiIwYjgyYzkxZi00MWY4LTRiZjctOGU2YS0yOWJkMzAyNGZiZWMiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbIioiXSwicmVzb3VyY2VfYWNjZXNzIjp7ImNhc2UtYXBwIjp7InJvbGVzIjpbInNoYWhlZW5fZnVsbF9zY29wZV9jb2xsYWIiXX19LCJzY29wZSI6Im9wZW5pZCBwcm9maWxlIiwiZ3JvdXBzX3BhdGgiOlsiL2c0MmFfZGVmYXVsdC9HNDIgLSBET05UIENIQU5HRS9IZXJjdWxlcyJdLCJyb2xlcyI6WyJnNDJhX2Y3MWUxOWU4LTgzYzEtNGRiNi1hZWNjLTEzN2JlNWExMGZkMV91c2VyX3JvbGUiLCJnNDJhX2Y3MWUxOWU4LTgzYzEtNGRiNi1hZWNjLTEzN2JlNWExMGZkMV91c2VyX3JvbGUiLCJnNDJhX2Y3MWUxOWU4LTgzYzEtNGRiNi1hZWNjLTEzN2JlNWExMGZkMV91c2VyX3JvbGUiLCJzaGFoZWVuX3NldCIsInNoYWhlZW5fbGluayIsInNoYWhlZW5fY2hhdCIsInNoYWhlZW5fZGF0YV9zb3VyY2UiLCJzaGFoZWVuX3NldHRpbmdzIiwic2hhaGVlbl9wcm9maWxlIiwic2hhaGVlbl9tYXAiLCJzaGFoZWVuX3NlYXJjaCIsInNoYWhlZW5fY2FzZSIsInNoYWhlZW5fdXBsb2FkIl0sIm5hbWUiOiJOaXRpc2ggU2hhcm1hIiwiZ3JvdXBzIjpbIkhlcmN1bGVzIl0sInByZWZlcnJlZF91c2VybmFtZSI6Im5pdGlzaC5zaGFybWEiLCJnaXZlbl9uYW1lIjoiTml0aXNoIiwiZmFtaWx5X25hbWUiOiJTaGFybWEifQ.YyKF3Wkf5w1-DzzAgxeqL5xamc4_t8bs9skGi3CXfLVj5Z3KnVWfnzINn2UFE4MQvM8qbs-KYh-2Punm0i3HSEpSt2J0gWARB4uWFC-V2Yf-aMlcPEyQ-rWbqdtVa3tO8lTMu8IShc4-HRiJBbzoA8sJEytQtStUU5JXZAo2xnPeQcNSH0_wd8m2aaOi8XIQAac0WdcWvIGdNlS9fb2atY1afwfY93HxTyEwAdBqAcW8ULDDyOzxH0L0je_7tYPDhCKzMdA3B8VV_Sh0WrmSmDSPNqI8eTUH-VgKYdzw9fwXWXmp6N_HYCcO-mEGcWq_76H-jbxHMQ9WVTnb0c6azA",
-      "username": "nitish.sharma",
-      "password": "Password@123",
+      "token": "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJaYS1qaUdab1JDTkxoazZUUkZ1WUY5bEVpbW9ncXhVOE91Ulpoak5VMmZFIn0.eyJleHAiOjE3NTkxNDI2NzEsImlhdCI6MTc1OTEzNTQ3MSwianRpIjoiMWYwZGVhMWQtODg0NS00YzY0LWJkYzYtNzNjNWFlOTFiNjBkIiwiaXNzIjoiaHR0cHM6Ly9rZXljbG9hay5kZXYuZzQyYS5hZS9hdXRoL3JlYWxtcy9nNDJhIiwic3ViIjoiYjkwYzg5ODItYmRhOC00YzBmLWE4OWMtMjNkZjUzZDNjZjY0IiwidHlwIjoiQmVhcmVyIiwiYXpwIjoic2hhaGVlbiIsInNlc3Npb25fc3RhdGUiOiI5YWZjMDg2Yi1mMGRkLTQ4NTAtYTNiZS0zYzc2YzI4NTUyYWMiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbIioiXSwicmVzb3VyY2VfYWNjZXNzIjp7ImNhc2UtYXBwIjp7InJvbGVzIjpbImFkbWluIl19fSwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSIsImRhdGFfcm9sZXMiOlsiZGFuYV91aV9hZG1pbiIsImFkbWluIl0sImdyb3Vwc19wYXRoIjpbIi9nNDJhX2RlZmF1bHQvRzQyIC0gRE9OVCBDSEFOR0UvSGVyY3VsZXMiLCIvZzQyYV9kZWZhdWx0L1pldXMiLCIvZzQyYV9kZWZhdWx0L0c0MiAtIERPTlQgQ0hBTkdFL1pldXMiXSwicm9sZXMiOlsiZzQyYV9iOTBjODk4Mi1iZGE4LTRjMGYtYTg5Yy0yM2RmNTNkM2NmNjRfdXNlcl9yb2xlIiwiZzQyYV9waXl1c2guc2FmYXlhX3VzZXJfcm9sZSIsImc0MmFfYjkwYzg5ODItYmRhOC00YzBmLWE4OWMtMjNkZjUzZDNjZjY0X3VzZXJfcm9sZSIsImc0MmFfcGl5dXNoLnNhZmF5YV91c2VyX3JvbGUiLCJnNDJhX2I5MGM4OTgyLWJkYTgtNGMwZi1hODljLTIzZGY1M2QzY2Y2NF91c2VyX3JvbGUiLCJnNDJhX3BpeXVzaC5zYWZheWFfdXNlcl9yb2xlIiwic2hhaGVlbl9zZXQiLCJzaGFoZWVuX2xpbmsiLCJzaGFoZWVuX2NoYXQiLCJzaGFoZWVuX2RhdGFfc291cmNlIiwic2hhaGVlbl9zZXR0aW5ncyIsInNoYWhlZW5fcHJvZmlsZSIsInNoYWhlZW5fbWFwIiwic2hhaGVlbl9wYWdlX21vZHVsZSIsInNoYWhlZW5fY2FzZSIsInNoYWhlZW5fc2VhcmNoIiwic2hhaGVlbl91cGxvYWQiXSwibmFtZSI6IlBpeXVzaCBTYWZheWEiLCJncm91cHMiOlsiSGVyY3VsZXMiLCJaZXVzIiwiWmV1cyJdLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJwaXl1c2guc2FmYXlhIiwiZ2l2ZW5fbmFtZSI6IlBpeXVzaCIsImZhbWlseV9uYW1lIjoiU2FmYXlhIn0.M1i6fnL2kHjs9kX2noCIFKnwneoZO1NXS3gR7G2pbTmzRp2N6tUWw0ORQvmt3-uhXGfnVpueTmywSfZwogk9bAdbxNtUTirB-Z93B0TOK9lqgYaeuUHfdQrj4s3IAWe_hSCk9mn7tj47H8I4AGfXrJmVU1fogH13yMAAfZnPI2ATtqdQpMONPX3ZEON55ZIVCr0zgMXmKVERaSmeY_WSY_C5jyEMjt7os5N_2bCMHoCgp1R0yNPLjODeF3Ze1igvoMBubsP0zkgCgr2S8zAOY-pGYrhiKYCN6qZw7f6jAYaZHOIl1IkVQGM8URYVxIzzrVihvamULscqmI-qGwskFA",
+      "username": "piyush.safaya",
+      "password": "piyush1234",
       "apiKey": "${API_KEY}",
       "customHeaders": {
         "X-API-Key": "${API_KEY}",
@@ -51,7 +51,7 @@
       "grantType": "password"
     },
     "createdAt": "2025-09-04T18:07:35.071Z",
-    "updatedAt": "2025-09-22T12:18:11.823Z",
+    "updatedAt": "2025-09-29T08:44:32.741Z",
     "status": "active"
   },
   {
@@ -86,16 +86,23 @@
       "llmProvider": "Ollama"
     },
     "authorization": {
-      "enabled": false,
-      "type": "basic",
+      "enabled": true,
+      "type": "oauth2",
       "token": "${API_TOKEN}",
-      "username": "${API_USERNAME}",
-      "password": "${API_PASSWORD}",
+      "username": "piyush.safaya",
+      "password": "piyush1234",
       "apiKey": "${API_KEY}",
-      "customHeaders": {}
+      "customHeaders": {},
+      "clientId": "shaheen",
+      "clientSecret": "2580bb8f-e2d1-468e-897c-71df73c138e8",
+      "scope": "openid",
+      "authUrl": "https://keycloak.dev.g42a.ae/auth/realms/g42a/protocol/openid-connect/token",
+      "tokenUrl": "https://keycloak.dev.g42a.ae/auth/realms/g42a/protocol/openid-connect/token",
+      "redirectUri": "https://p-tray.dev.g42a.ae/",
+      "grantType": "password"
     },
     "createdAt": "2025-09-09T19:36:10.270Z",
-    "updatedAt": "2025-09-16T21:54:04.004Z",
+    "updatedAt": "2025-09-28T10:44:17.621Z",
     "status": "active"
   },
   {
@@ -148,7 +155,7 @@
       "grantType": "password"
     },
     "createdAt": "2025-09-09T22:25:17.412Z",
-    "updatedAt": "2025-09-20T12:04:07.109Z",
+    "updatedAt": "2025-09-29T09:59:47.579Z",
     "status": "active"
   },
   {

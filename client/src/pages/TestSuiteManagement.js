@@ -12,7 +12,9 @@ import {
   FiImage,
   FiX,
   FiAlertTriangle,
-  FiClock
+  FiClock,
+  FiPlayCircle,
+  FiCode
 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import api from '../config/axios';
@@ -1805,6 +1807,57 @@ const TestSuiteManagement = () => {
     return testType === 'api test' || testType === 'api';
   });
 
+  const handleRunTestDebug = async (testId) => {
+    try {
+      const test = tests.find(t => t.id === testId);
+      if (!test) return;
+      // Kick off execution with debug mode
+      const res = await api.post("/test-execution/run", {
+        testId,
+        browser: "chromium",
+        headless: false,
+        retries: 0,
+        timeout: 0,
+        debug: true
+      });
+      if (res.data?.success) {
+        toast.info("Debug run started");
+      } else {
+        toast.error("Failed to start debug run");
+      }
+    } catch (e) {
+      toast.error(`Failed to start debug: ${e.message}`);
+    }
+  };
+  const handleTestGeneration = async () => {
+    try {
+      const testCaseName = window.prompt("Enter test case name:", "codegen-test");
+      if (!testCaseName) return;
+      const url = window.prompt("Enter URL to record (default: https://staging-shaheen.dev.g42a.ae/):", "https://staging-shaheen.dev.g42a.ae/");
+      if (!url) return;
+      
+      toast.info("Starting Playwright codegen...");
+      
+      const res = await api.post("/test-gen/codegen", {
+        url: url,
+        testCaseName: testCaseName,
+        outputFile: `${testCaseName}.spec.ts`
+      });
+      
+      if (res.data?.success) {
+        toast.success(`Playwright codegen started for "${testCaseName}"! A browser window will open for recording.`);
+        console.log("Codegen file:", res.data.filePath);
+        fetchAllTests();
+        console.log("Codegen file:", res.data.filePath);
+        fetchAllTests();
+      } else {
+        toast.error("Failed to start codegen");
+      }
+    } catch (e) {
+      toast.error(`Failed to start codegen: ${e.message}`);
+    }
+  };
+
   if (loading) {
     return (
       <TestSuiteContainer>
@@ -1921,20 +1974,23 @@ const TestSuiteManagement = () => {
                       </span>
                   )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '12px' }}>
                   {selectedTests.length > 0 && (
                     <Button className="danger" onClick={handleDeleteSelectedTests}>
                         <FiTrash2 />
                       DELETE SELECTED ({selectedTests.length})
                       </Button>
                   )}
+                  <Button className="primary" onClick={handleTestGeneration}>
+                    <FiCode />
+                    TEST GEN
+                  </Button>
                   {tests.length > 0 && (
                     <Button className="danger" onClick={handleDeleteAllTests}>
                       <FiTrash2 />
                       DELETE ALL TESTS
                     </Button>
-                  )}
-                </div>
+                  )}                </div>
               </SectionHeader>
 
               <FilterTabs>
@@ -2017,6 +2073,12 @@ const TestSuiteManagement = () => {
                           className="play"
                         >
                           <FiPlay />
+                        </ActionButton>
+                        <ActionButton
+                          onClick={() => handleRunTestDebug(test.id)}
+                          title="Debug"
+                        >
+                          <FiPlayCircle />
                         </ActionButton>
                         <ActionButton
                           onClick={() => handleViewTest(test.id)}

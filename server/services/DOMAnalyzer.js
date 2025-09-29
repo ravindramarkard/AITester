@@ -1,12 +1,15 @@
 const { chromium } = require('playwright');
 const axios = require('axios');
 const path = require('path');
+const fs = require('fs');
 
 class DOMAnalyzer {
   constructor() {
     this.browser = null;
     this.page = null;
     this.selectorCache = new Map();
+    this.persistedSelectors = new Map();
+    this.healStorePath = null;
   }
 
   async initialize() {
@@ -18,6 +21,12 @@ class DOMAnalyzer {
         if (!path.isAbsolute(browsersPath)) browsersPath = path.resolve(projectRoot, browsersPath);
         process.env.PLAYWRIGHT_BROWSERS_PATH = browsersPath;
         console.log('DOMAnalyzer using PLAYWRIGHT_BROWSERS_PATH:', process.env.PLAYWRIGHT_BROWSERS_PATH);
+
+        // Prepare self-heal store
+        const healDir = path.join(projectRoot, 'server', '.self-heal');
+        this.healStorePath = path.join(healDir, 'selectors.json');
+        try { fs.mkdirSync(healDir, { recursive: true }); } catch (_) {}
+        await this.loadHealStore();
       } catch (_) {}
 
       const headless = process.env.HEADLESS === 'false' ? false : true;
@@ -41,9 +50,63 @@ class DOMAnalyzer {
       }
       this.page = null;
       this.browser = null;
+      await this.saveHealStore();
     } catch (error) {
       console.warn('DOMAnalyzer cleanup error:', error.message);
     }
+  }
+
+  async loadHealStore() {
+    try {
+      if (this.healStorePath && fs.existsSync(this.healStorePath)) {
+        const raw = fs.readFileSync(this.healStorePath, 'utf8');
+        const obj = JSON.parse(raw || '{}');
+        this.persistedSelectors = new Map(Object.entries(obj));
+      }
+    } catch (e) {
+      console.warn('Failed to load self-heal store:', e.message);
+      this.persistedSelectors = new Map();
+    }
+  }
+
+  async saveHealStore() {
+    try {
+      if (!this.healStorePath) return;
+      const obj = Object.fromEntries(this.persistedSelectors.entries());
+      fs.writeFileSync(this.healStorePath, JSON.stringify(obj, null, 2), 'utf8');
+    } catch (e) {
+      console.warn('Failed to save self-heal store:', e.message);
+    }
+  }
+
+  getPersistKey(kind, rawTarget) {
+    const norm = String(rawTarget || '').trim().toLowerCase();
+    return `${kind}|${norm}`;
+  }
+
+  getPersistedSelector(kind, rawTarget) {
+    try {
+      if (!process.env.HEALING_ENABLED || process.env.HEALING_ENABLED === 'true') {
+        const key = this.getPersistKey(kind, rawTarget);
+        const rec = this.persistedSelectors.get(key);
+        if (!rec) return null;
+        if (rec.type === 'label' && rec.name) return this.page.getByLabel(new RegExp(rec.name, 'i')).first();
+        if (rec.type === 'role' && rec.role && rec.name) return this.page.getByRole(rec.role, { name: new RegExp(rec.name, 'i') }).first();
+        if (rec.type === 'selector' && rec.selector) return this.page.locator(rec.selector).first();
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  persistHealedSelector(kind, rawTarget, descriptor) {
+    try {
+      const enabled = !process.env.HEALING_PERSIST || process.env.HEALING_PERSIST === 'true';
+      if (!enabled) return;
+      const key = this.getPersistKey(kind, rawTarget);
+      this.persistedSelectors.set(key, descriptor);
+      // Fire and forget save (sync for simplicity to avoid races)
+      this.saveHealStore();
+    } catch (_) {}
   }
 
   async navigateToPage(url, timeout, waitUntil, retries) {
@@ -138,12 +201,67 @@ class DOMAnalyzer {
         return true;
       } catch (_) {}
     }
+
+    // 0) Use persisted selector if available
+    const persisted = this.getPersistedSelector(kind, rawTarget);
+    if (persisted) {
+      try {
+        await this.perform(kind, persisted, value, timeout);
+        this.selectorCache.set(cacheKey, persisted);
+        return true;
+      } catch (e) {
+        console.log('[heal] persisted selector failed, continuing resolution:', e.message);
+      }
+    }
+
+    // 1) Semantic label/role resolution first (natural language → accessible name)
+    const labelPatterns = this.generateLabelPatterns(rawTarget);
+    for (const pat of labelPatterns) {
+      try {
+        if (kind === 'click') {
+          const loc = this.page.getByRole('button', { name: pat });
+          if ((await loc.count()) > 0) {
+            await this.perform('click', loc.first(), value, timeout);
+            this.selectorCache.set(cacheKey, loc.first());
+            this.persistHealedSelector(kind, rawTarget, { type: 'role', role: 'button', name: pat.source || String(pat) });
+            return true;
+          }
+        } else if (kind === 'fill') {
+          const loc = this.page.getByLabel(pat).first();
+          if ((await loc.count()) > 0) {
+            await this.perform('fill', loc, value, timeout);
+            this.selectorCache.set(cacheKey, loc);
+            this.persistHealedSelector(kind, rawTarget, { type: 'label', name: pat.source || String(pat) });
+            return true;
+          }
+          const tb = this.page.getByRole('textbox', { name: pat }).first();
+          if ((await tb.count()) > 0) {
+            await this.perform('fill', tb, value, timeout);
+            this.selectorCache.set(cacheKey, tb);
+            this.persistHealedSelector(kind, rawTarget, { type: 'role', role: 'textbox', name: pat.source || String(pat) });
+            return true;
+          }
+        } else if (kind === 'select') {
+          const loc = this.page.getByLabel(pat).first();
+          if ((await loc.count()) > 0) {
+            await this.perform('select', loc, value, timeout);
+            this.selectorCache.set(cacheKey, loc);
+            this.persistHealedSelector(kind, rawTarget, { type: 'label', name: pat.source || String(pat) });
+            return true;
+          }
+        }
+      } catch (_) {}
+    }
+ 
     const candidates = this.generateSelectorCandidates(rawTarget);
     const scored = await this.scoreCandidates(candidates);
     for (const { selector } of scored) {
       try {
         await this.perform(kind, selector, value, timeout);
         this.selectorCache.set(cacheKey, selector);
+        if (typeof selector === 'string') {
+          this.persistHealedSelector(kind, rawTarget, { type: 'selector', selector });
+        }
         return true;
       } catch (err) {
         console.log(`[heal] ${kind} failed for ${selector}: ${err.message}`);
@@ -153,27 +271,54 @@ class DOMAnalyzer {
   }
 
   async perform(kind, selector, value, timeout) {
+    const isLocator = selector && typeof selector === 'object' && typeof selector.click === 'function';
     if (kind === 'click') {
-      await this.page.click(selector, { timeout });
+      if (isLocator) {
+        await selector.click({ timeout });
+      } else {
+        await this.page.click(selector, { timeout });
+      }
       await this.page.waitForLoadState('networkidle', { timeout: Math.min(timeout, 3000) }).catch(() => {});
     } else if (kind === 'fill') {
-      await this.page.fill(selector, value, { timeout });
+      if (isLocator && typeof selector.fill === 'function') {
+        await selector.fill(value, { timeout });
+      } else if (isLocator) {
+        await this.page.fill(selector.toString(), value, { timeout });
+      } else {
+        await this.page.fill(selector, value, { timeout });
+      }
     } else if (kind === 'select') {
-      await this.page.selectOption(selector, value, { timeout });
+      if (isLocator && typeof selector.selectOption === 'function') {
+        await selector.selectOption(value, { timeout });
+      } else {
+        await this.page.selectOption(selector, value, { timeout });
+      }
       await this.page.waitForLoadState('networkidle', { timeout: Math.min(timeout, 3000) }).catch(() => {});
     }
   }
 
   generateSelectorCandidates(target) {
-    const normalized = String(target).toLowerCase();
+    const normalized = String(target).trim();
+    const lower = normalized.toLowerCase();
     const out = new Set();
-    // Base strategies from generateSelectors
-    this.generateSelectors(normalized).forEach(s => out.add(s));
-    // Heuristics: role and placeholder
-    out.add(`getByRole=button:${target}`);
-    out.add(`getByRole=textbox:${target}`);
-    out.add(`css=[placeholder*="${target}" i]`);
-    out.add(`text=${target}`);
+    // Highest priority: explicit labels and roles
+    out.add(`getByLabel=${normalized}`);
+    out.add(`getByRole=textbox:${normalized}`);
+    out.add(`getByRole=button:${normalized}`);
+    // Common name/id variants
+    for (const v of this._nameVariants(lower)) {
+      out.add(`css=[name="${v}"]`);
+      out.add(`#${v}`);
+      out.add(`css=[data-testid="${v}"]`);
+      out.add(`css=input[id*="${v}"]`);
+    }
+    // Aria label
+    out.add(`css=[aria-label*="${normalized}"]`);
+    // Base strategies from existing heuristics
+    this.generateSelectors(lower).forEach(s => out.add(s));
+    // Lowest priority: placeholder/text fallbacks
+    out.add(`css=[placeholder*="${normalized}" i]`);
+    out.add(`text=${normalized}`);
     return Array.from(out);
   }
 
@@ -184,7 +329,13 @@ class DOMAnalyzer {
       let score = 0;
       try {
         // Support pseudo getBy* shortcuts
-        if (cand.startsWith('getByRole=')) {
+        if (cand.startsWith('getByLabel=')) {
+          const label = cand.slice('getByLabel='.length);
+          const loc = this.page.getByLabel(new RegExp(label, 'i'));
+          const count = await loc.count();
+          selector = loc;
+          score = count > 0 ? 110 - Math.min(count - 1, 100) : 0;
+        } else if (cand.startsWith('getByRole=')) {
           const [_, rest] = cand.split('=');
           const [role, name] = rest.split(':');
           const loc = this.page.getByRole(role, { name: new RegExp(name, 'i') });
@@ -195,13 +346,13 @@ class DOMAnalyzer {
           const css = cand.slice(4);
           const count = await this.page.locator(css).count();
           selector = css;
-          score = count > 0 ? 80 - Math.min(count - 1, 70) : 0;
+          score = count > 0 ? 90 - Math.min(count - 1, 70) : 0;
         } else if (cand.startsWith('text=')) {
           const text = cand.slice(5);
           const loc = this.page.getByText(new RegExp(text, 'i'));
           const count = await loc.count();
           selector = loc;
-          score = count > 0 ? 60 - Math.min(count - 1, 50) : 0;
+          score = count > 0 ? 40 - Math.min(count - 1, 30) : 0;
         } else {
           const count = await this.page.locator(cand).count();
           selector = cand;
@@ -550,9 +701,24 @@ class DOMAnalyzer {
       }
       
       // Extract all interactive elements with their attributes
-      const elements = await this.page.evaluate(() => {
+      const { elements, formFields } = await this.page.evaluate(() => {
         const interactiveElements = [];
-        
+        const formFields = [];
+
+        // Build label->control map
+        const labels = Array.from(document.querySelectorAll('label'));
+        const labelMap = new Map();
+        labels.forEach(label => {
+          const text = (label.textContent || '').trim();
+          let control = null;
+          const forId = label.getAttribute('for');
+          if (forId) control = document.getElementById(forId);
+          if (!control) control = label.querySelector('input, textarea, select');
+          if (text && control) {
+            labelMap.set(control, text);
+          }
+        });
+         
         // Get all input elements
         const inputs = document.querySelectorAll('input');
         inputs.forEach((input, index) => {
@@ -594,8 +760,18 @@ class DOMAnalyzer {
           elementInfo.selectors.push(`input:nth-child(${index + 1})`);
           
           interactiveElements.push(elementInfo);
+
+          // Record form field mapping
+          const label = labelMap.get(input) || '';
+          formFields.push({
+            label: label,
+            name: input.name || '',
+            id: input.id || '',
+            placeholder: input.placeholder || '',
+            type: input.type || 'text'
+          });
         });
-        
+         
         // Get all button elements
         const buttons = document.querySelectorAll('button');
         buttons.forEach((button, index) => {
@@ -636,7 +812,7 @@ class DOMAnalyzer {
           
           interactiveElements.push(elementInfo);
         });
-        
+         
         // Get all link elements
         const links = document.querySelectorAll('a');
         links.forEach((link, index) => {
@@ -715,9 +891,9 @@ class DOMAnalyzer {
           interactiveElements.push(elementInfo);
         });
         
-        return interactiveElements;
+        return { elements: interactiveElements, formFields };
       });
-      
+ 
       console.log(`Found ${elements.length} interactive elements`);
       // Get page title if page is still valid
       let pageTitle = 'Unknown';
@@ -733,6 +909,7 @@ class DOMAnalyzer {
         url,
         timestamp: new Date().toISOString(),
         elements,
+        formFields,
         pageTitle
       };
       

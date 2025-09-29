@@ -74,6 +74,9 @@ function cleanGeneratedCode(rawCode) {
   // CRITICAL: Fix ambiguous selectors that cause strict mode violations
   cleaned = fixAmbiguousSelectors(cleaned);
 
+  // CRITICAL: Fix invalid .tags() method usage (Playwright doesn't support this)
+  cleaned = fixInvalidTagsUsage(cleaned);
+
   // Fix async/await syntax issues in callback functions
   cleaned = cleaned.replace(
     /(allure\.createStep\([^,]+,\s*)\(\)\s*=>\s*{([^}]*await[^}]*)}/g,
@@ -404,6 +407,11 @@ Return ONLY the complete TypeScript code without explanations or markdown.`;
     // Use the proper LLMService approach with system and user prompts - NO FALLBACK
     const systemPrompt = `You are an expert Playwright test automation engineer. Generate high-quality, production-ready Playwright test code based on user requirements.
 
+🚨 CRITICAL: NEVER USE .tags() METHOD - IT DOES NOT EXIST IN PLAYWRIGHT 🚨
+- .tags() method is INVALID and will cause runtime errors
+- Use allure.tag() inside test.beforeEach() hook instead
+- Example: test.beforeEach(async () => { await allure.tag('ui-test'); });
+
 REQUIREMENTS:
 - Use TypeScript with Playwright
 - Include proper imports: import { test, expect } from '@playwright/test'
@@ -417,6 +425,17 @@ REQUIREMENTS:
 - Use page.waitForSelector() for element visibility
 - Add proper test cleanup in afterEach
 - Include Allure tags and attachments
+
+CRITICAL PLAYWRIGHT SYNTAX RULES:
+- NEVER use .tags() method on test functions (test().tags() is invalid)
+- Use allure.tag() inside test.beforeEach() hook for tagging
+- Use test.describe() for grouping tests
+- Use test() for individual test cases
+- Correct tagging pattern:
+  test.beforeEach(async () => {
+    await allure.tag('ui-test');
+    await allure.tag('smoke');
+  });
 
 CRITICAL SELECTOR RULES - PREVENT ELEMENT AMBIGUITY:
 - NEVER use getByText() for common text that appears multiple times (Dashboard, Home, Login, Submit, Save, Cancel, Edit, Delete)
@@ -448,8 +467,20 @@ Return ONLY the complete TypeScript test file code without any explanations or m
       parsedSteps: parsedSteps
     });
     
-    // Clean the generated code
-    let testCode = cleanGeneratedCode(rawCode);
+    // Clean the generated code using LLM service post-processing (includes .tags() fix)
+    let testCode = llmService.postProcessGeneratedCode(rawCode, testName, testType);
+    
+    // If prompt has tags, inject them as Allure labels at test start
+    try {
+      const tags = Array.isArray(prompt.tags) ? prompt.tags : (typeof prompt.tags === 'string' ? prompt.tags.split(',').map(t => t.trim()).filter(Boolean) : []);
+      if (tags.length > 0 && typeof testCode === 'string') {
+        // Insert after first opening test block
+        testCode = testCode.replace(/(test\(['\"][^\n]*['\"],\s*async\s*\(\{?[^)]*\}\)?\s*=>\s*\{)/, (m) => {
+          const labels = tags.map(t => `    allure.label('tag', '${t}');`).join('\n');
+          return `${m}\n${labels}\n`;
+        });
+      }
+    } catch (_) {}
     
     // Add session management code if useExistingSession is true
     if (useExistingSession) {
@@ -1260,6 +1291,11 @@ Return ONLY the complete TypeScript code without explanations or markdown.`;
     
     const systemPrompt = `You are an expert Playwright test automation engineer. Generate high-quality, production-ready Playwright test code based on user requirements.
 
+🚨 CRITICAL: NEVER USE .tags() METHOD - IT DOES NOT EXIST IN PLAYWRIGHT 🚨
+- .tags() method is INVALID and will cause runtime errors
+- Use allure.tag() inside test.beforeEach() hook instead
+- Example: test.beforeEach(async () => { await allure.tag('ui-test'); });
+
 REQUIREMENTS:
 - Use TypeScript with Playwright
 - Include proper imports: import { test, expect } from '@playwright/test'
@@ -1273,6 +1309,17 @@ REQUIREMENTS:
 - Use page.waitForSelector() for element visibility
 - Add proper test cleanup in afterEach
 - Include Allure tags and attachments
+
+CRITICAL PLAYWRIGHT SYNTAX RULES:
+- NEVER use .tags() method on test functions (test().tags() is invalid)
+- Use allure.tag() inside test.beforeEach() hook for tagging
+- Use test.describe() for grouping tests
+- Use test() for individual test cases
+- Correct tagging pattern:
+  test.beforeEach(async () => {
+    await allure.tag('ui-test');
+    await allure.tag('smoke');
+  });
 
 ${useExistingSession ? `
 CRITICAL SESSION MANAGEMENT - MUST INCLUDE:
@@ -1298,8 +1345,20 @@ Return ONLY the complete TypeScript test file code without any explanations or m
       parsedSteps: parsedSteps
     });
     
-    // Clean the generated code
-    let testCode = cleanGeneratedCode(rawCode);
+    // Clean the generated code using LLM service post-processing (includes .tags() fix)
+    let testCode = llmService.postProcessGeneratedCode(rawCode, testName, testType);
+    
+    // If prompt has tags, inject them as Allure labels at test start
+    try {
+      const tags = Array.isArray(prompt.tags) ? prompt.tags : (typeof prompt.tags === 'string' ? prompt.tags.split(',').map(t => t.trim()).filter(Boolean) : []);
+      if (tags.length > 0 && typeof testCode === 'string') {
+        // Insert after first opening test block
+        testCode = testCode.replace(/(test\(['\"][^\n]*['\"],\s*async\s*\(\{?[^)]*\}\)?\s*=>\s*\{)/, (m) => {
+          const labels = tags.map(t => `    allure.label('tag', '${t}');`).join('\n');
+          return `${m}\n${labels}\n`;
+        });
+      }
+    } catch (_) {}
     
     // Add session management code if useExistingSession is true
     if (useExistingSession) {
@@ -1354,6 +1413,100 @@ Return ONLY the complete TypeScript test file code without any explanations or m
       error: error.message
     };
   }
+}
+
+// Fix invalid .tags() method usage - Playwright doesn't support this method
+function fixInvalidTagsUsage(code) {
+  let fixedCode = code;
+  
+  // Pattern to match various .tags() usage patterns - more comprehensive
+  const tagsPatterns = [
+    /(\}\s*)\)\.tags\([^)]*\);/g,     // }).tags('tag1', 'tag2');
+    /(\s*)\)\.tags\([^)]*\);/g,       // ).tags('tag1', 'tag2');
+    /test\([^)]*\)\.tags\([^)]*\);/g, // test('name').tags('tag1', 'tag2');
+    /\.tags\([^)]*\);/g,              // any .tags() call
+    /\.tags\([^)]*\)/g                // any .tags() call without semicolon
+  ];
+  
+  let tagsFound = false;
+  let extractedTags = [];
+  
+  // Process all tag patterns
+  tagsPatterns.forEach(pattern => {
+    const matches = fixedCode.match(pattern);
+    if (matches) {
+      tagsFound = true;
+      matches.forEach(match => {
+        // Extract tags from the match
+        const tagsMatch = match.match(/\.tags\(([^)]*)\)/);
+        if (tagsMatch && tagsMatch[1]) {
+          // Parse the tags (remove quotes and split by comma)
+          const tagsString = tagsMatch[1];
+          const tags = tagsString.split(',').map(tag => tag.trim().replace(/['"]/g, ''));
+          extractedTags.push(...tags);
+          
+          // Remove the .tags() call
+          if (match.includes('}).tags(')) {
+            fixedCode = fixedCode.replace(match, match.replace(/\.tags\([^)]*\)/, ''));
+          } else if (match.includes(').tags(')) {
+            fixedCode = fixedCode.replace(match, match.replace(/\.tags\([^)]*\)/, ''));
+          } else {
+            fixedCode = fixedCode.replace(match, match.replace(/\.tags\([^)]*\);/, ';'));
+          }
+        }
+      });
+    }
+  });
+  
+  // If tags were found, add them to beforeEach
+  if (tagsFound && extractedTags.length > 0) {
+    // Remove duplicates
+    const uniqueTags = [...new Set(extractedTags)];
+    const tagCalls = uniqueTags.map(tag => `    await allure.tag('${tag}');`).join('\n');
+    
+    // Check if there's already a beforeEach hook
+    const beforeEachMatch = fixedCode.match(/(test\.beforeEach\(async \([^)]*\) => \{[\s\S]*?)([\s]*\}\);)/);
+    
+    if (beforeEachMatch) {
+      // Add tags to existing beforeEach (before the closing })
+      const beforeContent = beforeEachMatch[1];
+      const afterContent = beforeEachMatch[2];
+      
+      // Check if allure tags already exist
+      if (!beforeContent.includes('await allure.tag(')) {
+        fixedCode = fixedCode.replace(beforeEachMatch[0], `${beforeContent}\n${tagCalls}\n${afterContent}`);
+      }
+    } else {
+      // Add a new beforeEach hook after the describe line
+      const describePattern = /(test\.describe\([^{]*\{[\s\n]*)/;
+      if (fixedCode.match(describePattern)) {
+        fixedCode = fixedCode.replace(describePattern, 
+          `$1  test.beforeEach(async ({ page }) => {\n${tagCalls}\n  });\n\n`
+        );
+      }
+    }
+    
+    console.log('🔧 Fixed invalid .tags() method usage and added allure tagging');
+  }
+  
+  // AGGRESSIVE cleanup of any remaining .tags() calls with multiple patterns
+  fixedCode = fixedCode.replace(/\.tags\([^)]*\);?/g, '');
+  fixedCode = fixedCode.replace(/\.tags\([^)]*\)\s*;/g, ';');
+  fixedCode = fixedCode.replace(/\.tags\([^)]*\)/g, '');
+  fixedCode = fixedCode.replace(/\)\s*\.tags\([^)]*\)/g, ')');
+  fixedCode = fixedCode.replace(/\}\s*\)\.tags\([^)]*\);/g, '});');
+  
+  // Clean up any double semicolons or empty lines
+  fixedCode = fixedCode.replace(/;;/g, ';');
+  fixedCode = fixedCode.replace(/\n\n\n+/g, '\n\n');
+  
+  // Final safety check - log if any .tags() still remain
+  if (fixedCode.includes('.tags(')) {
+    console.warn('⚠️ WARNING: .tags() calls still found after cleanup. Manual review needed.');
+    console.log('Remaining .tags() calls:', fixedCode.match(/\.tags\([^)]*\)/g));
+  }
+  
+  return fixedCode;
 }
 
 module.exports = router;

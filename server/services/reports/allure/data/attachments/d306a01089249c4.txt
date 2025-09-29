@@ -1,0 +1,52 @@
+Test failed: page.waitForURL: Timeout 15000ms exceeded.
+=========================== logs ===========================
+waiting for navigation to "**/cases" until "load"
+  navigated to "https://staging-shaheen.dev.g42a.ae/"
+  navigated to "https://staging-shaheen.dev.g42a.ae/cases"
+============================================================
+    at /Users/ravindra.markard/Documents/Sept18/AITester/tests/projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/612259d0-2fd9-41fe-90f1-83a746a92443/test-case----create-a-case-without-collaborators-assigned-.spec.ts:37:18 {
+  name: 'TimeoutError',
+  [Symbol(step)]: {
+    location: {
+      file: '/Users/ravindra.markard/Documents/Sept18/AITester/tests/projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/612259d0-2fd9-41fe-90f1-83a746a92443/test-case----create-a-case-without-collaborators-assigned-.spec.ts',
+      line: 37,
+      column: 18
+    },
+    category: 'pw:api',
+    title: 'Wait for navigation',
+    apiName: 'page.waitForURL',
+    params: { info: [Object] },
+    group: undefined,
+    stepId: 'pw:api@33',
+    boxedStack: undefined,
+    steps: [],
+    attachmentIndices: [],
+    info: TestStepInfoImpl {
+      annotations: [],
+      _testInfo: [TestInfoImpl],
+      _stepId: 'pw:api@33',
+      _title: 'Wait for navigation',
+      _parentStep: undefined,
+      skip: [Function (anonymous)]
+    },
+    recoverFromStepError: [AsyncFunction: recoverFromStepError],
+    complete: [Function: complete],
+    endWallTime: 1758797639877,
+    error: {
+      message: 'TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n' +
+        '=========================== logs ===========================\n' +
+        'waiting for navigation to "**/cases" until "load"\n' +
+        '  navigated to "https://staging-shaheen.dev.g42a.ae/"\n' +
+        '  navigated to "https://staging-shaheen.dev.g42a.ae/cases"\n' +
+        '============================================================',
+      stack: 'TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n' +
+        '=========================== logs ===========================\n' +
+        'waiting for navigation to "**/cases" until "load"\n' +
+        '  navigated to "https://staging-shaheen.dev.g42a.ae/"\n' +
+        '  navigated to "https://staging-shaheen.dev.g42a.ae/cases"\n' +
+        '============================================================\n' +
+        '    at /Users/ravindra.markard/Documents/Sept18/AITester/tests/projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/612259d0-2fd9-41fe-90f1-83a746a92443/test-case----create-a-case-without-collaborators-assigned-.spec.ts:37:18',
+      cause: undefined
+    }
+  }
+}

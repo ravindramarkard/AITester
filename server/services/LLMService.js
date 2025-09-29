@@ -317,7 +317,18 @@ GENERATE:
 - Step-by-step test implementation
 - Proper assertions and error handling
 - Screenshot capture on failure
-- Allure reporting tags
+- Allure reporting tags using allure.tag() in beforeEach hook, NOT test().tags()
+
+CRITICAL PLAYWRIGHT SYNTAX RULES:
+- NEVER use .tags() method on test functions (test().tags() is invalid)
+- Use allure.tag() inside test.beforeEach() hook for tagging
+- Use test.describe() for grouping tests
+- Use test() for individual test cases
+- Correct tagging pattern:
+  test.beforeEach(async () => {
+    await allure.tag('ui-test');
+    await allure.tag('smoke');
+  });
 
 Return ONLY the complete TypeScript test file code, no explanations or markdown formatting.`;
   }
@@ -402,6 +413,9 @@ Generate the complete test file code.`;
     
     // Remove markdown code blocks if present
     code = code.replace(/```typescript?\n?/g, '').replace(/```\n?/g, '');
+    
+    // CRITICAL: Fix invalid .tags() method usage (Playwright doesn't support this)
+    code = this.fixInvalidTagsUsage(code);
     
     // CRITICAL: Fix any ambiguous selectors that cause strict mode violations
     code = this.fixAmbiguousSelectors(code);
@@ -566,6 +580,100 @@ ${code}
     return enhancedCode;
   }
 
+  fixInvalidTagsUsage(code) {
+    // Fix invalid .tags() method usage - Playwright doesn't support this method
+    let fixedCode = code;
+    
+    // Pattern to match various .tags() usage patterns - more comprehensive
+    const tagsPatterns = [
+      /(\}\s*)\)\.tags\([^)]*\);/g,     // }).tags('tag1', 'tag2');
+      /(\s*)\)\.tags\([^)]*\);/g,       // ).tags('tag1', 'tag2');
+      /test\([^)]*\)\.tags\([^)]*\);/g, // test('name').tags('tag1', 'tag2');
+      /\.tags\([^)]*\);/g,              // any .tags() call
+      /\.tags\([^)]*\)/g                // any .tags() call without semicolon
+    ];
+    
+    let tagsFound = false;
+    let extractedTags = [];
+    
+    // Process all tag patterns
+    tagsPatterns.forEach(pattern => {
+      const matches = fixedCode.match(pattern);
+      if (matches) {
+        tagsFound = true;
+        matches.forEach(match => {
+          // Extract tags from the match
+          const tagsMatch = match.match(/\.tags\(([^)]*)\)/);
+          if (tagsMatch && tagsMatch[1]) {
+            // Parse the tags (remove quotes and split by comma)
+            const tagsString = tagsMatch[1];
+            const tags = tagsString.split(',').map(tag => tag.trim().replace(/['"]/g, ''));
+            extractedTags.push(...tags);
+            
+            // Remove the .tags() call
+            if (match.includes('}).tags(')) {
+              fixedCode = fixedCode.replace(match, match.replace(/\.tags\([^)]*\)/, ''));
+            } else if (match.includes(').tags(')) {
+              fixedCode = fixedCode.replace(match, match.replace(/\.tags\([^)]*\)/, ''));
+            } else {
+              fixedCode = fixedCode.replace(match, match.replace(/\.tags\([^)]*\);/, ';'));
+            }
+          }
+        });
+      }
+    });
+    
+    // If tags were found, add them to beforeEach
+    if (tagsFound && extractedTags.length > 0) {
+      // Remove duplicates
+      const uniqueTags = [...new Set(extractedTags)];
+      const tagCalls = uniqueTags.map(tag => `    await allure.tag('${tag}');`).join('\n');
+      
+      // Check if there's already a beforeEach hook
+      const beforeEachMatch = fixedCode.match(/(test\.beforeEach\(async \([^)]*\) => \{[\s\S]*?)([\s]*\}\);)/);
+      
+      if (beforeEachMatch) {
+        // Add tags to existing beforeEach (before the closing })
+        const beforeContent = beforeEachMatch[1];
+        const afterContent = beforeEachMatch[2];
+        
+        // Check if allure tags already exist
+        if (!beforeContent.includes('await allure.tag(')) {
+          fixedCode = fixedCode.replace(beforeEachMatch[0], `${beforeContent}\n${tagCalls}\n${afterContent}`);
+        }
+      } else {
+        // Add a new beforeEach hook after the describe line
+        const describePattern = /(test\.describe\([^{]*\{[\s\n]*)/;
+        if (fixedCode.match(describePattern)) {
+          fixedCode = fixedCode.replace(describePattern, 
+            `$1  test.beforeEach(async ({ page }) => {\n${tagCalls}\n  });\n\n`
+          );
+        }
+      }
+      
+      console.log('🔧 Fixed invalid .tags() method usage and added allure tagging');
+    }
+    
+    // AGGRESSIVE cleanup of any remaining .tags() calls with multiple patterns
+    fixedCode = fixedCode.replace(/\.tags\([^)]*\);?/g, '');
+    fixedCode = fixedCode.replace(/\.tags\([^)]*\)\s*;/g, ';');
+    fixedCode = fixedCode.replace(/\.tags\([^)]*\)/g, '');
+    fixedCode = fixedCode.replace(/\)\s*\.tags\([^)]*\)/g, ')');
+    fixedCode = fixedCode.replace(/\}\s*\)\.tags\([^)]*\);/g, '});');
+    
+    // Clean up any double semicolons or empty lines
+    fixedCode = fixedCode.replace(/;;/g, ';');
+    fixedCode = fixedCode.replace(/\n\n\n+/g, '\n\n');
+    
+    // Final safety check - log if any .tags() still remain
+    if (fixedCode.includes('.tags(')) {
+      console.warn('⚠️ WARNING: .tags() calls still found after cleanup in LLMService. Manual review needed.');
+      console.log('Remaining .tags() calls:', fixedCode.match(/\.tags\([^)]*\)/g));
+    }
+    
+    return fixedCode;
+  }
+
   async cleanup() {
     try {
       if (this.domAnalyzer) {
@@ -691,7 +799,7 @@ ${code}
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
                 'HTTP-Referer': 'http://localhost:5050',
-                'X-Title': 'AI Test Generator'
+                'X-Title': 'AI TestGen'
               },
               timeout: 30000
             });

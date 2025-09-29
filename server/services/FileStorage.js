@@ -73,6 +73,13 @@ class FileStorage {
       );
     }
 
+    // Sort by createdAt in descending order (newest first)
+    prompts = prompts.sort((a, b) => {
+      const dateA = new Date(a.createdAt || a.updatedAt || 0);
+      const dateB = new Date(b.createdAt || b.updatedAt || 0);
+      return dateB - dateA; // Descending order
+    });
+
     // Apply pagination
     const page = parseInt(query.page) || 1;
     const limit = parseInt(query.limit) || 1000; // Increased default limit to show all prompts

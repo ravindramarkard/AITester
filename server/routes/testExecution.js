@@ -22,7 +22,8 @@ router.post('/run', async (req, res) => {
       browser,
       headless,
       retries,
-      timeout
+      timeout,
+      debug
     } = req.body;
 
     // Validate required fields
@@ -99,6 +100,7 @@ router.post('/run', async (req, res) => {
         const testsDir = path.join(__dirname, '../tests/generated');
         const apiTestsPattern = path.join(testsDir, 'api-tests', '**/*.spec.ts');
         const uiTestsPattern = path.join(testsDir, '**/*.spec.ts');
+        const rootTestsPattern = path.join(__dirname, '../../tests/*.spec.ts');
         const projectsTestsPattern = path.join(__dirname, '../../tests/projects/**/*.spec.ts');
         
         console.log('Tests directory:', testsDir);
@@ -118,21 +120,25 @@ router.post('/run', async (req, res) => {
 
         const apiFiles = glob.sync(apiTestsPattern);
         const uiFiles = glob.sync(uiTestsPattern).filter(file => !file.includes('api-tests'));
+        const rootFiles = glob.sync(rootTestsPattern);
         const projectFiles = glob.sync(projectsTestsPattern);
         
         console.log('API files found:', apiFiles.length);
         console.log('UI files found:', uiFiles.length);
+        console.log('Root files found:', rootFiles.length);
         console.log('Project files found:', projectFiles.length);
         
         const allFiles = [
           ...apiFiles,
           ...uiFiles,
+          ...rootFiles,
           ...projectFiles
         ];
 
         console.log(`Found ${allFiles.length} files in generated tests directory`);
         console.log('API tests pattern:', apiTestsPattern);
         console.log('UI tests pattern:', uiTestsPattern);
+        console.log('Root tests pattern:', rootTestsPattern);
         console.log('Projects tests pattern:', projectsTestsPattern);
 
         for (const filePath of allFiles) {
@@ -227,7 +233,9 @@ router.post('/run', async (req, res) => {
         if (browser && browser !== 'chromium') {
           playwrightArgs.push('--project', browser);
         }
-        if (headless) {
+        if (debug) {
+          playwrightArgs.push('--debug');
+        } else if (headless) {
           playwrightArgs.push('--headed=false');
         } else {
           playwrightArgs.push('--headed');
@@ -243,7 +251,8 @@ router.post('/run', async (req, res) => {
         const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(projectRoot, '.local-browsers');
         const env = { 
           ...process.env, 
-          PLAYWRIGHT_BROWSERS_PATH: browsersPath
+          PLAYWRIGHT_BROWSERS_PATH: browsersPath,
+          PWDEBUG: debug ? '1' : process.env.PWDEBUG
         };
         
         // If test was generated from a prompt with baseUrl, explicitly unset BASE_URL

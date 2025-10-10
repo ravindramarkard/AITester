@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # AI Test Generator Setup Script
-echo "🚀 Setting up AI Test Generator..."
+echo "🚀 Setting up AI TestGen..."
 
 # Check if Node.js is installed
 if ! command -v node &> /dev/null; then

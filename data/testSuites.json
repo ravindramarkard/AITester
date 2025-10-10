@@ -1,1 +1,78 @@
-[]
+[
+  {
+    "id": "suite-1759963550930-cpiyeo0fu",
+    "name": "all test cases",
+    "description": "test",
+    "testType": "UI",
+    "testCases": [
+      {
+        "id": "ui-submit-the-form",
+        "name": "submit the form",
+        "tags": [
+          "ui"
+        ],
+        "type": "UI",
+        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/60b5cc18-f815-4a6e-986a-52726c23e079/submit-the-form.spec.ts",
+        "created": "2025-10-08T22:04:36.412Z",
+        "modified": "2025-10-08T22:04:36.413Z",
+        "isReference": true
+      },
+      {
+        "id": "ui-test-invalid-login",
+        "name": "test invalid login",
+        "tags": [
+          "ui",
+          "login"
+        ],
+        "type": "UI",
+        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/713be9ee-2817-4052-8765-44bcbe0f5b7c/test-invalid-login.spec.ts",
+        "created": "2025-10-08T22:56:04.363Z",
+        "modified": "2025-10-08T22:56:04.364Z"
+      }
+    ],
+    "createdAt": "2025-10-08T22:45:50.930Z",
+    "status": "ready",
+    "totalTests": 2,
+    "lastRun": null,
+    "results": {
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "total": 3
+    },
+    "selectedTestCases": [
+      {
+        "id": "ui-submit-the-form",
+        "name": "submit the form",
+        "tags": [
+          "ui"
+        ],
+        "type": "UI",
+        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/60b5cc18-f815-4a6e-986a-52726c23e079/submit-the-form.spec.ts",
+        "created": "2025-10-08T22:04:36.412Z",
+        "modified": "2025-10-08T22:04:36.413Z",
+        "isReference": true
+      },
+      {
+        "id": "ui-test-invalid-login",
+        "name": "test invalid login",
+        "tags": [
+          "ui",
+          "login"
+        ],
+        "type": "UI",
+        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/713be9ee-2817-4052-8765-44bcbe0f5b7c/test-invalid-login.spec.ts",
+        "created": "2025-10-08T22:56:04.363Z",
+        "modified": "2025-10-08T22:56:04.364Z"
+      }
+    ],
+    "updatedAt": "2025-10-08T22:57:58.366Z",
+    "schedule": {
+      "cron": "*/2 * * * *",
+      "enabled": true,
+      "environmentId": "62f5c730-ad8c-4982-a6be-153743a950bd",
+      "headless": false,
+      "workers": 2
+    }
+  }
+]

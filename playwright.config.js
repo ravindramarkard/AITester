@@ -15,7 +15,7 @@ module.exports = defineConfig({
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 1 : 0,
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : (process.env.UI_WORKERS ? parseInt(process.env.UI_WORKERS, 10) : 1),
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
@@ -37,10 +37,12 @@ module.exports = defineConfig({
     trace: 'on-first-retry',
     
     /* Take screenshot on failure */
-    screenshot: 'only-on-failure',
+   /* screenshot: 'only-on-failure',*/
+   screenshot: 'on',
     
     /* Record video on failure */
-    video: 'retain-on-failure',
+    /*video: 'retain-on-failure',*/
+    video: 'on',
     
     /* Browser launch options for better performance */
     launchOptions: {
@@ -74,7 +76,7 @@ module.exports = defineConfig({
     },
     
     /* Viewport settings for consistent rendering */
-    viewport: { width: 1280, height: 720 },
+   /* viewport: { width: 1280, height: 720 },*/
     
     /* Ignore HTTPS errors */
     ignoreHTTPSErrors: true,

@@ -1,3 +1,0 @@
-environment.authorization?.token
-401
-undefined

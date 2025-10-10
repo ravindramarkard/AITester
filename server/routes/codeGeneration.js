@@ -407,6 +407,13 @@ Return ONLY the complete TypeScript code without explanations or markdown.`;
     // Use the proper LLMService approach with system and user prompts - NO FALLBACK
     const systemPrompt = `You are an expert Playwright test automation engineer. Generate high-quality, production-ready Playwright test code based on user requirements.
 
+🚨 CRITICAL OUTPUT REQUIREMENTS 🚨
+- Return ONLY the complete TypeScript test file code
+- DO NOT add any explanations, comments, or descriptions after the code
+- DO NOT include phrases like "This test...", "The code...", "Key features...", etc.
+- End your response immediately after the closing brace of the test structure
+- The last line should be }); or similar test structure closing
+
 🚨 CRITICAL: NEVER USE .tags() METHOD - IT DOES NOT EXIST IN PLAYWRIGHT 🚨
 - .tags() method is INVALID and will cause runtime errors
 - Use allure.tag() inside test.beforeEach() hook instead
@@ -1290,6 +1297,13 @@ Return ONLY the complete TypeScript code without explanations or markdown.`;
     };
     
     const systemPrompt = `You are an expert Playwright test automation engineer. Generate high-quality, production-ready Playwright test code based on user requirements.
+
+🚨 CRITICAL OUTPUT REQUIREMENTS 🚨
+- Return ONLY the complete TypeScript test file code
+- DO NOT add any explanations, comments, or descriptions after the code
+- DO NOT include phrases like "This test...", "The code...", "Key features...", etc.
+- End your response immediately after the closing brace of the test structure
+- The last line should be }); or similar test structure closing
 
 🚨 CRITICAL: NEVER USE .tags() METHOD - IT DOES NOT EXIST IN PLAYWRIGHT 🚨
 - .tags() method is INVALID and will cause runtime errors

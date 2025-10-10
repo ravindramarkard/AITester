@@ -470,6 +470,13 @@ async function generateIndividualAPITest(endpoint, environment, components) {
   const timeout = environment?.variables?.TIMEOUT || 30000;
   const authHeaders = await buildAuthorizationHeaders(environment);
   
+  // Remove Authorization header from authHeaders if it contains a token - use env var instead
+  const cleanHeaders = { ...authHeaders };
+  const hasAuthToken = authHeaders['Authorization'];
+  if (hasAuthToken) {
+    delete cleanHeaders['Authorization'];
+  }
+  
   const expectedStatus = getExpectedStatus(endpoint);
   const endpointPath = endpoint.path || endpoint.url || '/unknown';
   const testName = `${endpoint.method} ${endpointPath}`;
@@ -480,6 +487,14 @@ async function generateIndividualAPITest(endpoint, environment, components) {
   const minimalSample = hasBody && rawSchema ? buildSampleFromSchemaRequiredOnly(rawSchema, components) : null;
   const sampleLiteral = minimalSample !== null ? JSON.stringify(minimalSample, null, 2) : null;
   
+  // Build extraHTTPHeaders dynamically with env var for auth token
+  const extraHeadersStr = hasAuthToken 
+    ? `{
+        ...${JSON.stringify(cleanHeaders, null, 10).replace(/\n/g, '\n        ')},
+        'Authorization': \`Bearer \${process.env.API_TOKEN || process.env.OAUTH_TOKEN}\`
+      }`.replace(/,\n\s*\.\.\./, '\n        ...')
+    : JSON.stringify(cleanHeaders);
+  
   return `import { test, expect, APIRequestContext } from '@playwright/test';
 import { allure } from 'allure-playwright';
 
@@ -489,9 +504,9 @@ test.describe('${testName}', () => {
   test.beforeAll(async () => {
     const { request } = await import('@playwright/test');
     requestContext = await request.newContext({
-      baseURL: '${baseUrl}',
-      extraHTTPHeaders: ${JSON.stringify(authHeaders)},
-      timeout: ${timeout}
+      baseURL: process.env.BASE_URL || process.env.API_URL || '${baseUrl}',
+      extraHTTPHeaders: ${extraHeadersStr},
+      timeout: parseInt(process.env.TIMEOUT || '${timeout}', 10)
     });
   });
 
@@ -503,12 +518,11 @@ test.describe('${testName}', () => {
     // Build sample request body if applicable from OpenAPI schema
     ${minimalSample !== null ? `const sampleBody = ${sampleLiteral};` : ''}
 
-    const requestOptions = {
-      headers: ${JSON.stringify(authHeaders)}${hasBody ? `,
+    const requestOptions = {${hasBody ? `
       data: ${sampleLiteral ? 'sampleBody' : '{ /* TODO: fill body */ }'}` : ''}
     };
 
-    const response = await requestContext.${(endpoint.method || 'GET').toLowerCase()}('${endpointPath}', requestOptions);
+    const response = await requestContext.${(endpoint.method || 'GET').toLowerCase()}('${endpointPath}'${hasBody ? ', requestOptions' : ''});
     await expect(response.status()).toBe(${expectedStatus});
 
     const responseBody = await response.json().catch(() => null);
@@ -1038,6 +1052,15 @@ async function buildAuthorizationHeaders(environment) {
       
     case 'oauth2':
       try {
+        // First check if a token is already stored in the environment
+        if (auth.token) {
+          const token = resolveEnvironmentVariables(auth.token, environment);
+          headers['Authorization'] = `Bearer ${token}`;
+          console.log('Using stored OAuth token from environment');
+          break;
+        }
+
+        // Otherwise, fetch a new token
         const { clientId, clientSecret, tokenUrl, scope, grantType = 'password', username, password } = auth;
 
         if (!clientId || !tokenUrl) {
@@ -1821,16 +1844,8 @@ function postProcessAPITestCode(generatedCode, endpoint, variation, timeout, env
   if (processedCode.includes('test.describe') && processedCode.includes('test.beforeAll')) {
     const testName = endpoint.method + ' ' + (endpoint.path || endpoint.url || '/unknown');
     
-    // Extract OAuth configuration from environment
-    const authConfig = {
-      clientId: environment?.authorization?.clientId || 'shaheen',
-      clientSecret: environment?.authorization?.clientSecret || '4f93f37f-0d79-4533-8519-7dd42492c647',
-      tokenUrl: environment?.authorization?.tokenUrl || 'https://keycloak.dev.g42a.ae/auth/realms/g42a/protocol/openid-connect/token',
-      scope: environment?.authorization?.scope || 'openid',
-      grantType: environment?.authorization?.grantType || 'password',
-      username: environment?.authorization?.username || 'nitish.sharma',
-      password: environment?.authorization?.password || 'Password@123'
-    };
+    // Use environment variables for OAuth configuration - no hardcoded credentials
+    const hasOAuth = environment?.authorization?.enabled && environment?.authorization?.type === 'oauth2';
     
     const cleanTemplate = `
 import { test, expect, APIRequestContext, APIResponse } from '@playwright/test';
@@ -1844,42 +1859,20 @@ test.describe('${testName} - happy-path', () => {
   test.beforeAll(async () => {
     const { request } = await import('@playwright/test');
     
-    // First, fetch OAuth token from local endpoint
-    try {
-      console.log('🔐 Fetching OAuth token from local endpoint...');
-      const tokenContext = await request.newContext();
-      const tokenResponse = await tokenContext.post('http://localhost:5051/api/environments/test-oauth-token', {
-        data: {
-          clientId: "${authConfig.clientId}",
-          clientSecret: "${authConfig.clientSecret}",
-          tokenUrl: "${authConfig.tokenUrl}",
-          scope: "${authConfig.scope}",
-          grantType: "${authConfig.grantType}",
-          username: "${authConfig.username}",
-          password: "${authConfig.password}"
-        }
-      });
-      
-      if (tokenResponse.status() === 200) {
-        const tokenData = await tokenResponse.json();
-        oauthToken = tokenData.token;
-        console.log('✅ OAuth token fetched successfully from local endpoint');
-      } else {
-        console.error('❌ Failed to fetch OAuth token from local endpoint:', tokenResponse.status());
-        throw new Error(\`Failed to fetch OAuth token: \${tokenResponse.status()}\`);
-      }
-      
-      await tokenContext.dispose();
-    } catch (error) {
-      console.error('❌ Error fetching OAuth token:', error);
-      throw error;
+    // Use API token provided by the test executor
+    oauthToken = process.env.API_TOKEN;
+    if (!oauthToken) {
+      throw new Error('API_TOKEN environment variable is required. Make sure to run via UI or server API with environment configuration.');
     }
+    console.log('✅ Using API token from environment');
 
-    // Now create the main request context with the fetched token
+    // Create the main request context with the token
     requestContext = await request.newContext({
       baseURL: process.env.BASE_URL || process.env.API_URL || '${environment?.variables?.API_URL || environment?.variables?.BASE_URL || 'https://p-tray.dev.g42a.ae'}',
       extraHTTPHeaders: {
-        'Authorization': \`Bearer \${oauthToken}\`,
+        'Accept': '*/*',
+        'Content-Type': 'application/json',
+        'Authorization': \`Bearer \${process.env.API_TOKEN || oauthToken}\`,
         'X-Space': process.env.X_SPACE || 'default'
       },
       timeout: parseInt(process.env.TIMEOUT || '30000', 10)

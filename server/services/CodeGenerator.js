@@ -17,23 +17,73 @@ function sanitizeLLMCode(rawCode) {
   const firstImportIdx = cleaned.search(/\bimport\s+\{/);
   if (firstImportIdx > -1) cleaned = cleaned.substring(firstImportIdx);
 
-  const endings = [
-    cleaned.lastIndexOf('\n});'),
-    cleaned.lastIndexOf('\n}\);'),
-    cleaned.lastIndexOf('\n});\n')
-  ].filter(i => i >= 0);
-  if (endings.length > 0) {
-    const cutAt = Math.max(...endings) + 4;
-    cleaned = cleaned.substring(0, cutAt);
+  // More aggressive approach to find the last meaningful closing brace
+  const lines = cleaned.split('\n');
+  let lastValidLine = -1;
+  let braceDepth = 0;
+  let inTestStructure = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Skip empty lines and comments
+    if (!line || line.startsWith('//') || line.startsWith('/*') || line.startsWith('*')) {
+      continue;
+    }
+    
+    // Detect start of test structure
+    if (line.includes('test.describe') || line.includes('test(') || line.includes('import {')) {
+      inTestStructure = true;
+    }
+    
+    // Count braces
+    const openBraces = (line.match(/\{/g) || []).length;
+    const closeBraces = (line.match(/\}/g) || []).length;
+    braceDepth += openBraces - closeBraces;
+    
+    // If we're in test structure and find a closing pattern, mark as potential end
+    if (inTestStructure && (line.includes('});') || line.includes('})'))) {
+      lastValidLine = i;
+      
+      // If braces are balanced at this point, this is likely the real end
+      if (braceDepth === 0) {
+        break;
+      }
+    }
   }
 
+  // Cut at the last valid line if found
+  if (lastValidLine >= 0) {
+    cleaned = lines.slice(0, lastValidLine + 1).join('\n');
+  } else {
+    // Fallback to original logic with better patterns
+    const endings = [
+      cleaned.lastIndexOf('\n});'),
+      cleaned.lastIndexOf('\n}\);'),
+      cleaned.lastIndexOf('\n});\n'),
+      cleaned.lastIndexOf('});'),
+      cleaned.lastIndexOf('})')
+    ].filter(i => i >= 0);
+    
+    if (endings.length > 0) {
+      const cutAt = Math.max(...endings);
+      const endPattern = cleaned.substring(cutAt);
+      const adjustment = endPattern.includes('});') ? 4 : (endPattern.includes('})') ? 2 : 1);
+      cleaned = cleaned.substring(0, cutAt + adjustment);
+    }
+  }
+
+  // Filter out descriptive lines more aggressively
   cleaned = cleaned
     .split('\n')
     .filter(line => {
       const t = line.trim();
-      if (/^(Explanation:|Note:|Tips?:)/i.test(t)) return false;
+      // Remove common descriptive patterns
+      if (/^(Explanation:|Note:|Tips?:|This test|The test|Key features|The code|This implementation|The above)/i.test(t)) return false;
       if (/^[-*]\s/.test(t) && !/^\*\s@/.test(t)) return false;
-      if (/^\d+\./.test(t)) return false;
+      if (/^\d+\./.test(t) && !t.includes('import') && !t.includes('const') && !t.includes('let') && !t.includes('var')) return false;
+      // Remove lines that look like explanatory text
+      if (t.length > 50 && !t.includes('await') && !t.includes('expect') && !t.includes('test') && !t.includes('import') && !t.includes('const') && !t.includes('=')) return false;
       return true;
     })
     .join('\n')

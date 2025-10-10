@@ -304,7 +304,7 @@ const Dashboard = () => {
     <DashboardContainer>
       <Header>
         <Title>Dashboard</Title>
-        <Subtitle>Welcome to AI Test Generator - Your automated testing solution</Subtitle>
+        <Subtitle>Welcome to AI TestGen - Your automated testing solution</Subtitle>
       </Header>
 
       <StatsGrid>

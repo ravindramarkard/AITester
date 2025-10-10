@@ -88,7 +88,12 @@ class ApiTestExecutor {
         const resolvedTestFile = path.isAbsolute(testFile) ? testFile : path.join(this.projectRoot, testFile);
         console.log(`📁 Resolved test file path: ${resolvedTestFile}`);
         
-        // Run API test using Playwright
+        // Check if test file exists
+        if (!fs.existsSync(resolvedTestFile)) {
+          throw new Error(`Test file not found: ${resolvedTestFile}`);
+        }
+        
+        // Run API test using Playwright from project root
         const args = [
           'test',
           resolvedTestFile,
@@ -198,6 +203,11 @@ class ApiTestExecutor {
           env[key] = value;
         });
       }
+
+      // Expose selected environment id for token proxy usage
+      if (environmentConfig._id || environmentConfig.id) {
+        env.ENVIRONMENT_ID = String(environmentConfig._id || environmentConfig.id);
+      }
       
       // Add authentication if provided
       if (environmentConfig.apiKey) {
@@ -211,19 +221,18 @@ class ApiTestExecutor {
         env.API_PASSWORD = environmentConfig.password;
       }
 
-      // Handle OAuth2 token fetching via local endpoint
+      // Fetch OAuth token from environment authorization configuration
       if (environmentConfig.authorization?.enabled && environmentConfig.authorization?.type === 'oauth2') {
         try {
-          console.log('🔐 Fetching OAuth token via local endpoint for API test execution...');
-          const tokenResponse = await this.fetchOAuthToken(environmentConfig.authorization);
-          if (tokenResponse) {
-            // Set the token in the format expected by tests: Bearer ${env.token}
-            env.OAUTH_TOKEN = tokenResponse;
-            env.token = tokenResponse; // Also set as 'token' field for Bearer ${env.token} usage
-            console.log('✅ OAuth token fetched successfully for API test via local endpoint');
+          console.log('🔐 Fetching OAuth token from environment authorization config...');
+          const token = await this.fetchOAuthToken(environmentConfig.authorization);
+          if (token) {
+            env.API_TOKEN = token;
+            console.log('✅ OAuth token fetched and set as API_TOKEN');
           }
         } catch (error) {
-          console.warn('⚠️ Failed to fetch OAuth token via local endpoint for API test:', error.message);
+          console.error('❌ Failed to fetch OAuth token:', error.message);
+          throw new Error(`OAuth token fetch failed: ${error.message}`);
         }
       }
     } else {
@@ -242,6 +251,7 @@ class ApiTestExecutor {
       API_URL: env.API_URL,
       API_TIMEOUT: env.API_TIMEOUT,
       TEST_ENVIRONMENT: env.TEST_ENVIRONMENT,
+      ENVIRONMENT_ID: env.ENVIRONMENT_ID,
       OAUTH_TOKEN: env.OAUTH_TOKEN ? '***REDACTED***' : 'Not set',
       token: env.token ? '***REDACTED***' : 'Not set'
     });
@@ -253,22 +263,36 @@ class ApiTestExecutor {
     const axios = require('axios');
     
     try {
-      console.log('🔐 Calling local OAuth token endpoint...');
+      console.log('🔐 Fetching OAuth token directly from Keycloak...');
+      console.log('🔐 Auth config:', {
+        clientId: authConfig.clientId,
+        tokenUrl: authConfig.tokenUrl,
+        grantType: authConfig.grantType || 'password',
+        username: authConfig.username
+      });
       
-      // Call the local endpoint with the auth configuration
-      const response = await axios.post('http://localhost:5051/api/environments/test-oauth-token', authConfig, {
-        headers: { 'Content-Type': 'application/json' },
+      // Call Keycloak directly with form-urlencoded data
+      const formData = new URLSearchParams();
+      formData.append('client_id', authConfig.clientId);
+      formData.append('client_secret', authConfig.clientSecret);
+      formData.append('grant_type', authConfig.grantType || 'password');
+      formData.append('username', authConfig.username);
+      formData.append('password', authConfig.password);
+      formData.append('scope', authConfig.scope || 'openid');
+
+      const response = await axios.post(authConfig.tokenUrl, formData, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         timeout: 15000
       });
 
-      if (response.data && response.data.token) {
-        console.log('✅ OAuth token fetched successfully from local endpoint');
-        return response.data.token;
+      if (response.data && response.data.access_token) {
+        console.log('✅ OAuth token fetched successfully from Keycloak');
+        return response.data.access_token;
       } else {
-        throw new Error('No token field in local endpoint response');
+        throw new Error('No access_token field in Keycloak response');
       }
     } catch (error) {
-      console.error('❌ Failed to fetch OAuth token from local endpoint:', error.response?.data || error.message);
+      console.error('❌ Failed to fetch OAuth token from Keycloak:', error.response?.data || error.message);
       throw new Error(`OAuth token fetch failed: ${error.response?.data?.error || error.message}`);
     }
   }

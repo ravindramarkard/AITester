@@ -89,7 +89,7 @@ const Sidebar = () => {
 
   return (
     <SidebarContainer>
-      <Logo>AI Test Generator</Logo>
+      <Logo>AI TestGen</Logo>
       <NavList>
         {navItems.map((item) => (
           <NavItem key={item.path}>

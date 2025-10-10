@@ -201,6 +201,13 @@ class LLMService {
     if (isAPITest) {
       return `You are an expert Playwright API test automation engineer. Generate high-quality, production-ready Playwright API test code based on user requirements.
 
+🚨 CRITICAL OUTPUT REQUIREMENTS 🚨
+- Return ONLY the complete TypeScript test file code
+- DO NOT add any explanations, comments, or descriptions after the code
+- DO NOT include phrases like "This test...", "The code...", "Key features...", etc.
+- End your response immediately after the closing brace of the test structure
+- The last line should be }); or similar test structure closing
+
 REQUIREMENTS:
 - Use TypeScript with Playwright
 - Focus on API testing using request.get(), request.post(), request.put(), request.delete()
@@ -255,6 +262,13 @@ CRITICAL: Only use selectors that actually exist on the page as shown above.`;
      }
 
     return `You are an expert Playwright test automation engineer. Generate high-quality, production-ready Playwright test code based on user requirements.
+
+🚨 CRITICAL OUTPUT REQUIREMENTS 🚨
+- Return ONLY the complete TypeScript test file code
+- DO NOT add any explanations, comments, or descriptions after the code
+- DO NOT include phrases like "This test...", "The code...", "Key features...", etc.
+- End your response immediately after the closing brace of the test structure
+- The last line should be }); or similar test structure closing
 
 REQUIREMENTS:
 - Use TypeScript with Playwright
@@ -414,6 +428,9 @@ Generate the complete test file code.`;
     // Remove markdown code blocks if present
     code = code.replace(/```typescript?\n?/g, '').replace(/```\n?/g, '');
     
+    // CRITICAL: Remove extra descriptive text that appears after the test code
+    code = this.removeExtraDescriptiveText(code);
+    
     // CRITICAL: Fix invalid .tags() method usage (Playwright doesn't support this)
     code = this.fixInvalidTagsUsage(code);
     
@@ -441,6 +458,76 @@ ${code}
     }
 
     return code;
+  }
+
+  removeExtraDescriptiveText(code) {
+    // Find the last meaningful closing brace that ends the test structure
+    const lines = code.split('\n');
+    let lastMeaningfulLine = -1;
+    let braceCount = 0;
+    let inTest = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Skip empty lines and comments for brace counting
+      if (line === '' || line.startsWith('//') || line.startsWith('/*') || line.startsWith('*')) {
+        continue;
+      }
+      
+      // Check if we're entering a test structure
+      if (line.includes('test.describe') || line.includes('test(')) {
+        inTest = true;
+      }
+      
+      // Count braces
+      const openBraces = (line.match(/\{/g) || []).length;
+      const closeBraces = (line.match(/\}/g) || []).length;
+      braceCount += openBraces - closeBraces;
+      
+      // If we're in a test and braces are balanced, this might be the end
+      if (inTest && braceCount === 0 && (line.includes('});') || line.includes('})'))) {
+        lastMeaningfulLine = i;
+      }
+    }
+    
+    // If we found a meaningful ending, cut there
+    if (lastMeaningfulLine >= 0) {
+      code = lines.slice(0, lastMeaningfulLine + 1).join('\n');
+    } else {
+      // Fallback: look for common patterns that indicate end of test code
+      const patterns = [
+        /\n\s*\}\);\s*$/,           // });
+        /\n\s*\}\s*\)\s*;\s*$/,     // } );
+        /\n\s*\}\s*\}\);\s*$/       // }});
+      ];
+      
+      for (const pattern of patterns) {
+        const match = code.match(pattern);
+        if (match) {
+          code = code.substring(0, match.index + match[0].length).trim();
+          break;
+        }
+      }
+    }
+    
+    // Remove any remaining descriptive text patterns after the code
+    const descriptivePatterns = [
+      /\n\s*This test.*$/s,
+      /\n\s*The test.*$/s,
+      /\n\s*Note:.*$/s,
+      /\n\s*Explanation:.*$/s,
+      /\n\s*Key features.*$/s,
+      /\n\s*The code.*$/s,
+      /\n\s*This implementation.*$/s,
+      /\n\s*The above.*$/s
+    ];
+    
+    for (const pattern of descriptivePatterns) {
+      code = code.replace(pattern, '');
+    }
+    
+    return code.trim();
   }
 
   fixAmbiguousSelectors(code) {

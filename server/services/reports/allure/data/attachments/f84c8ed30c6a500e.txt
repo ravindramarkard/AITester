@@ -1,2 +1,0 @@
-❌ API returned error status: 401
-❌ Error details: { error: 'Unauthorized' }

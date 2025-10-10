@@ -307,16 +307,38 @@ router.post('/test-llm-connection', async (req, res) => {
 router.post('/test-oauth-token', async (req, res) => {
   try {
     const axios = require('axios');
-    const {
-      clientId,
-      clientSecret,
-      tokenUrl,
-      scope,
-      grantType = 'password',
-      username,
-      password
-    } = req.body;
+    const FileStorage = require('../services/FileStorage');
+    const fileStorage = new FileStorage();
+    
+    // Allow either direct auth payload or environmentId
+    let clientId, clientSecret, tokenUrl, scope, grantType = 'password', username, password;
+    if (req.body && req.body.environmentId) {
+      console.log('🔍 Looking for environment with ID:', req.body.environmentId);
+      const env = await fileStorage.getEnvironmentById(req.body.environmentId);
+      console.log('🔍 Found environment:', env ? env.name : 'null');
+      if (!env) {
+        return res.status(404).json({ success: false, message: 'Environment not found' });
+      }
+      const auth = env.authorization || {};
+      console.log('🔍 Auth config:', { 
+        enabled: auth.enabled, 
+        type: auth.type, 
+        clientId: auth.clientId, 
+        tokenUrl: auth.tokenUrl 
+      });
+      clientId = auth.clientId;
+      clientSecret = auth.clientSecret;
+      tokenUrl = auth.tokenUrl;
+      scope = auth.scope;
+      grantType = auth.grantType || 'password';
+      username = auth.username;
+      password = auth.password;
+    } else {
+      ({ clientId, clientSecret, tokenUrl, scope, grantType = 'password', username, password } = req.body || {});
+    }
 
+    console.log('🔍 Final auth params:', { clientId, tokenUrl, grantType, username: username ? '***' : 'none' });
+    
     if (!clientId || !tokenUrl) {
       return res.status(400).json({
         success: false,

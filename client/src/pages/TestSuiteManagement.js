@@ -1200,10 +1200,40 @@ const TestSuiteManagement = () => {
       console.log(`🚀 Running API test: ${test.name}`);
       console.log(`📁 Test file: ${testFilePath}`);
 
-      // Execute API test
+      // Get the default environment configuration for API tests
+      const environmentConfig = {
+        _id: "99924982-205a-40be-8607-f932506cd3d5",
+        name: "Test",
+        key: "llm-test",
+        description: "Environment for testing LLM code generation",
+        variables: {
+          BASE_URL: "https://staging-shaheen.dev.g42a.ae",
+          API_URL: "https://p-tray.dev.g42a.ae",
+          USERNAME: "piyush.safaya",
+          PASSWORD: "piyush1234",
+          TIMEOUT: 299998,
+          BROWSER: "chromium",
+          HEADLESS: false,
+          RETRIES: 1
+        },
+        authorization: {
+          enabled: true,
+          type: "oauth2",
+          clientId: "shaheen",
+          clientSecret: "4f93f37f-0d79-4533-8519-7dd42492c647",
+          tokenUrl: "https://keycloak.dev.g42a.ae/auth/realms/g42a/protocol/openid-connect/token",
+          scope: "openid",
+          grantType: "password",
+          username: "piyush.safaya",
+          password: "piyush1234"
+        }
+      };
+
+      // Execute API test with environment configuration
       const response = await api.post('/test-execution/run-api', {
         testFile: testFilePath,
         environment: 'test',
+        environmentConfig: environmentConfig,
         timeout: 30000,
         retries: 1
       });

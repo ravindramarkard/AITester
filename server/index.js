@@ -301,11 +301,13 @@ app.delete('/api/test-files/:id', (req, res) => {
     const apiTestsPattern = path.join(testsDir, 'api-tests', '**/*.spec.ts');
     const uiTestsPattern = path.join(testsDir, '**/*.spec.ts');
     const projectsTestsPattern = path.join(__dirname, '../tests/projects/**/*.spec.ts');
+    const rootTestsPattern = path.join(__dirname, '../tests/*.spec.ts');
 
     const allFiles = [
       ...glob.sync(apiTestsPattern),
       ...glob.sync(uiTestsPattern).filter(file => !file.includes('api-tests')),
-      ...glob.sync(projectsTestsPattern)
+      ...glob.sync(projectsTestsPattern),
+      ...glob.sync(rootTestsPattern)
     ];
 
     let testFile = null;
@@ -319,19 +321,116 @@ app.delete('/api/test-files/:id', (req, res) => {
       }
     }
 
-    if (!testFile) {
-      return res.status(404).json({ error: 'Test file not found' });
+    // If physical file exists, delete it
+    if (testFile) {
+      // Check if this is a test file in a prompt directory structure BEFORE deleting
+      // Path structure: /tests/projects/{project}/{model}/{modelName}/{promptId}/{testName}.spec.ts
+      const pathParts = testFile.split(path.sep);
+      const testsIndex = pathParts.indexOf('tests');
+      let shouldDeletePromptDir = false;
+      let promptDir = null;
+      
+      if (testsIndex !== -1) {
+        const relativePath = pathParts.slice(testsIndex + 1);
+        
+        // Check if this follows the prompt directory structure
+        // Path: projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/{promptId}/{testFile}
+        if (relativePath.length >= 7 && relativePath[0] === 'projects' && relativePath[5] === 'prompts') {
+          const project = relativePath[1];
+          const model = relativePath[2];
+          const modelName = relativePath[3];
+          const promptId = relativePath[6]; // promptId is at index 6
+          
+          // Construct the prompt directory path
+          promptDir = path.join(__dirname, '../tests/projects', project, model, modelName, 'LLM-Generated', 'prompts', promptId);
+          
+          // Check if prompt directory exists and contains only this test file
+          if (fs.existsSync(promptDir)) {
+            const filesInPromptDir = fs.readdirSync(promptDir);
+            const specFiles = filesInPromptDir.filter(file => file.endsWith('.spec.ts'));
+            
+            // If this is the only spec file in the prompt directory, mark for deletion
+            if (specFiles.length === 1 && specFiles[0] === path.basename(testFile)) {
+              shouldDeletePromptDir = true;
+              console.log(`Will delete prompt directory after file deletion: ${promptDir}`);
+            }
+          }
+        }
+      }
+      
+      // Delete the test file
+      fs.unlinkSync(testFile);
+      console.log(`Deleted test file: ${testFile}`);
+      
+      // Delete the prompt directory if it was the only test file
+      if (shouldDeletePromptDir && promptDir) {
+        console.log(`Deleting prompt directory: ${promptDir}`);
+        fs.rmSync(promptDir, { recursive: true, force: true });
+        console.log(`Deleted prompt directory: ${promptDir}`);
+      }
+      
+      return res.json({
+        success: true,
+        message: 'Test file deleted successfully',
+        filePath: testFile
+      });
     }
 
-    // Delete the file directly without backup
-    fs.unlinkSync(testFile);
-    console.log(`Deleted test file: ${testFile}`);
+    // If no physical file found, check if it's a data-only test
+    // Load test results to check if test exists in data
+    const testResultsPath = path.join(__dirname, '../data/testResults.json');
+    const promptsPath = path.join(__dirname, '../data/prompts.json');
     
-    res.json({
-      success: true,
-      message: 'Test file deleted successfully',
-      filePath: testFile
-    });
+    let testExistsInData = false;
+    let deletedFromData = false;
+
+    // Check and remove from testResults.json
+    if (fs.existsSync(testResultsPath)) {
+      const testResults = JSON.parse(fs.readFileSync(testResultsPath, 'utf8'));
+      const filteredResults = testResults.filter(result => result.testId !== id);
+      
+      if (filteredResults.length < testResults.length) {
+        fs.writeFileSync(testResultsPath, JSON.stringify(filteredResults, null, 2));
+        testExistsInData = true;
+        deletedFromData = true;
+        console.log(`Removed test ${id} from testResults.json`);
+      }
+    }
+
+    // Check and remove from prompts.json if it's a generated test
+    if (fs.existsSync(promptsPath)) {
+      const prompts = JSON.parse(fs.readFileSync(promptsPath, 'utf8'));
+      let promptsUpdated = false;
+      
+      for (let prompt of prompts) {
+        if (prompt.generatedTests && Array.isArray(prompt.generatedTests)) {
+          const originalLength = prompt.generatedTests.length;
+          prompt.generatedTests = prompt.generatedTests.filter(test => test.testId !== id);
+          
+          if (prompt.generatedTests.length < originalLength) {
+            promptsUpdated = true;
+            testExistsInData = true;
+            deletedFromData = true;
+            console.log(`Removed test ${id} from prompt ${prompt._id}`);
+          }
+        }
+      }
+      
+      if (promptsUpdated) {
+        fs.writeFileSync(promptsPath, JSON.stringify(prompts, null, 2));
+        console.log(`Updated prompts.json to remove test ${id}`);
+      }
+    }
+
+    if (testExistsInData) {
+      return res.json({
+        success: true,
+        message: 'Test deleted successfully from data',
+        deletedFromData: true
+      });
+    }
+
+    return res.status(404).json({ error: 'Test file not found' });
   } catch (error) {
     console.error('Error deleting test file:', error);
     res.status(500).json({

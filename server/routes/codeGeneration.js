@@ -7,6 +7,1100 @@ const LLMService = require('../services/LLMService');
 const { v4: uuidv4 } = require('uuid');
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
+
+// Helper function to launch browser for real-time interaction
+async function launchRealtimeBrowser(environment) {
+  try {
+    console.log('🚀 Starting launchRealtimeBrowser function...');
+    
+    const baseUrl = environment.variables?.BASE_URL || 'http://localhost:5050';
+    console.log(`🌐 Target URL: ${baseUrl}`);
+    
+    // No separate browser launch - the test execution will handle the browser
+    console.log(`🎯 Ready for real-time LLM interaction...`);
+    console.log(`👀 Browser will open when test execution starts`);
+    
+    return {
+      success: true,
+      targetUrl: baseUrl,
+      message: 'Ready for real-time LLM interaction',
+      browserLaunched: false
+    };
+    
+  } catch (error) {
+    console.error('Failed to prepare real-time browser:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+// Helper function to perform real-time LLM interaction with open browser
+async function performRealtimeLLMInteraction(testCode, baseUrl, promptContent, parsedSteps = []) {
+  try {
+    console.log('🎭 Starting real-time LLM interaction with open browser...');
+    console.log('👀 LLM will now interact with the browser based on your prompt!');
+    
+    // Import Playwright for direct browser control
+    const { chromium } = require('playwright');
+    
+    // Launch a new browser instance for real-time interaction
+    const browser = await chromium.launch({ 
+      headless: false, 
+      slowMo: 2000,  // Slow down actions for visibility
+      devtools: false 
+    });
+    
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    
+    console.log('🌐 Browser launched for real-time LLM interaction');
+    console.log('📄 Navigating to target URL...');
+    
+    // Resolve runtime BASE_URL override if provided
+    const targetUrl = process.env.BASE_URL || baseUrl;
+    // Navigate to the target URL
+    await page.goto(targetUrl);
+    console.log('✅ Navigated to:', targetUrl);
+    
+                // Wait for page to load completely
+                await page.waitForLoadState('networkidle');
+                console.log('⏳ Page loaded successfully');
+                
+                // Do not assume login form for all pages; conditional waits are inside specific flows
+    
+    // Perform LLM actions based on the prompt
+    console.log('🤖 LLM is now performing actions based on your prompt...');
+    console.log('🎯 Prompt:', promptContent);
+    if (Array.isArray(parsedSteps) && parsedSteps.length > 0) {
+      console.log(`🧭 Parsed steps received: ${parsedSteps.length}`);
+    }
+    
+                // Helper: infer locale code from prompt/url
+                function inferLocaleCode(prompt, url) {
+                  try {
+                    const lower = (prompt || '').toLowerCase();
+                    const matchDash = lower.match(/local[a-z]*\s*-\s*([a-z]{2,3})(?:[-_][a-z]{2})?/i);
+                    if (matchDash && matchDash[1]) return matchDash[1];
+                    const matchWord = lower.match(/local[a-z]*\s+([a-z]{2,3})(?:[-_][a-z]{2})?/i);
+                    if (matchWord && matchWord[1]) return matchWord[1];
+                    const urlSeg = (url || '').toLowerCase().match(/\/([a-z]{2})(?:-[a-z]{2})?\/?$/);
+                    if (urlSeg && urlSeg[1]) return urlSeg[1];
+                  } catch {}
+                  return null;
+                }
+
+    // Basic step interpreter (executes common actions when steps are provided)
+    if (Array.isArray(parsedSteps) && parsedSteps.length > 0) {
+      const text = (s) => String(s || '');
+      for (const raw of parsedSteps) {
+        const step = text(raw.originalText || raw).toLowerCase();
+        try {
+          if (/type\s+username\s+([^\s"']+)/i.test(step)) {
+            const match = raw.originalText.match(/type\s+username\s+([^\s"']+)/i);
+            const value = match ? match[1] : process.env.UI_USERNAME || '';
+            const username = page.getByPlaceholder(/username/i);
+            await username.waitFor({ state: 'visible', timeout: 15000 });
+            await username.fill(value);
+            console.log(`👤 Username typed: ${value}`);
+          } else if (/type\s+password\s+([^\s"']+)/i.test(step)) {
+            const match = raw.originalText.match(/type\s+password\s+([^\s"']+)/i);
+            const value = match ? match[1] : process.env.UI_PASSWORD || '';
+            const password = page.getByPlaceholder(/password/i);
+            await password.waitFor({ state: 'visible', timeout: 15000 });
+            await password.fill(value);
+            console.log(`🔒 Password typed: ••••`);
+          } else if (/click\s+on\s+log\s*in\s+button|click\s+login/i.test(step)) {
+            const loginBtn = page.getByRole('button', { name: /log\s*in|sign\s*in/i });
+            await loginBtn.waitFor({ state: 'visible', timeout: 15000 });
+            await loginBtn.click();
+            console.log('🔘 Login clicked');
+          } else if (/click\s+on\s+create\s+new\s+case/i.test(step)) {
+            const btn = page.getByRole('button', { name: /create\s*new\s*case/i });
+            await btn.waitFor({ state: 'visible', timeout: 15000 });
+            await btn.click();
+            console.log('🆕 Create New Case clicked');
+          } else if (/enter\s+case\s+name|into\s+enter\s+case\s+name/i.test(step)) {
+            const m = raw.originalText.match(/(?:type|enter)\s+test\s*case\s+([\s\S]+?)\s+into/i);
+            const value = (m && m[1]) || process.env.CASE_NAME || 'Auto Case';
+            const nameField = page.getByPlaceholder(/enter\s*case\s*name/i);
+            await nameField.waitFor({ state: 'visible', timeout: 15000 });
+            await nameField.fill(value);
+            console.log(`✍️ Case name entered: ${value}`);
+          } else if (/description/i.test(step)) {
+            const m = raw.originalText.match(/description\s+"?([\s\S]+?)"?\s+into/i);
+            const value = (m && m[1]) || process.env.CASE_DESC || 'Automation Desc';
+            const descField = page.getByPlaceholder(/enter\s*description/i);
+            await descField.waitFor({ state: 'visible', timeout: 15000 });
+            await descField.fill(value);
+            console.log(`📝 Description entered: ${value}`);
+          } else if (/click\s+on\s+save\s+button|click\s+save/i.test(step)) {
+            const saveBtn = page.getByRole('button', { name: /save/i });
+            await saveBtn.waitFor({ state: 'visible', timeout: 15000 });
+            await saveBtn.click();
+            console.log('💾 Save clicked');
+          } else if (/verify\s+created\s+case\s+available/i.test(step)) {
+            const name = process.env.CASE_NAME || 'Auto Case';
+            await page.waitForLoadState('networkidle');
+            await page.getByText(new RegExp(name, 'i')).first().waitFor({ state: 'visible', timeout: 20000 });
+            console.log('✅ Verified created case appears in list');
+          }
+        } catch (stepErr) {
+          console.log('⚠️ Step execution error (continuing):', stepErr instanceof Error ? stepErr.message : stepErr);
+        }
+      }
+    }
+
+    // Localization testing branch
+                if (promptContent.toLowerCase().includes('localazation')) {
+                  console.log('🌐 Performing localization checks...');
+                  const locale = inferLocaleCode(promptContent, baseUrl) || 'ar';
+                  console.log(`🗺️ Inferred locale: ${locale}`);
+
+                  // Ensure page is fully loaded
+                  await page.waitForLoadState('networkidle');
+
+                  // Check html lang and dir attributes
+                  const htmlAttrs = await page.evaluate(() => ({
+                    lang: document.documentElement.getAttribute('lang') || '',
+                    dir: document.documentElement.getAttribute('dir') || ''
+                  }));
+                  console.log(`🔎 html[lang] = ${htmlAttrs.lang}, html[dir] = ${htmlAttrs.dir}`);
+
+                  // For RTL locales, verify direction
+                  const rtlLocales = new Set(['ar', 'he', 'fa', 'ur']);
+                  if (rtlLocales.has(locale)) {
+                    if ((htmlAttrs.dir || '').toLowerCase() !== 'rtl') {
+                      console.log('⚠️ Expected RTL direction for locale, but html[dir] is not rtl');
+                    } else {
+                      console.log('✅ RTL direction is correctly set');
+                    }
+                  }
+
+                  // Verify script presence (e.g., Arabic letters) when applicable
+                  if (locale === 'ar') {
+                    const hasArabic = await page.evaluate(() => /[\u0600-\u06FF]/.test(document.body.innerText || ''));
+                    console.log(hasArabic ? '✅ Arabic script detected on page' : '⚠️ Arabic script not detected');
+                  }
+
+                  // Basic number/date formatting visibility (heuristic)
+                  try {
+                    await page.waitForSelector('body', { state: 'visible', timeout: 3000 });
+                    console.log('✅ Body element visible for localization checks');
+                  } catch {
+                    console.log('⚠️ Body visibility wait timed out');
+                  }
+
+                  // Screenshot for evidence
+                  await page.screenshot({ path: `realtime-llm-interaction-${locale}.png`, fullPage: true });
+                  console.log('📸 Localization screenshot saved');
+                }
+
+                // Check if this is a login prompt
+                else if (promptContent.toLowerCase().includes('login')) {
+                  console.log('🔐 Performing login actions...');
+                  
+                  // Try multiple selectors for username field
+                  console.log('👤 Looking for username field...');
+                  let usernameField = null;
+                  try {
+                    usernameField = page.getByPlaceholder('Username');
+                    await usernameField.waitFor({ state: 'visible', timeout: 5000 });
+                    console.log('✅ Found username field by placeholder');
+                  } catch (error) {
+                    try {
+                      usernameField = page.locator('input[name="username"]');
+                      await usernameField.waitFor({ state: 'visible', timeout: 5000 });
+                      console.log('✅ Found username field by name');
+                    } catch (error2) {
+                      try {
+                        usernameField = page.locator('input[type="text"]').first();
+                        await usernameField.waitFor({ state: 'visible', timeout: 5000 });
+                        console.log('✅ Found username field by type');
+                      } catch (error3) {
+                        console.log('❌ Could not find username field');
+                        throw new Error('Username field not found');
+                      }
+                    }
+                  }
+                  
+                  // Fill username field
+                  console.log('👤 Filling username field...');
+                  await usernameField.fill(promptContent.includes('invalid') ? 'invalidUser' : 'Admin');
+                  console.log('✅ Username filled');
+                  
+                  // Wait for username field to be filled (smart wait)
+                  await usernameField.waitFor({ state: 'visible' });
+                  console.log('✅ Username field is ready for next action');
+                  
+                  // Try multiple selectors for password field
+                  console.log('🔒 Looking for password field...');
+                  let passwordField = null;
+                  try {
+                    passwordField = page.getByPlaceholder('Password');
+                    await passwordField.waitFor({ state: 'visible', timeout: 5000 });
+                    console.log('✅ Found password field by placeholder');
+                  } catch (error) {
+                    try {
+                      passwordField = page.locator('input[name="password"]');
+                      await passwordField.waitFor({ state: 'visible', timeout: 5000 });
+                      console.log('✅ Found password field by name');
+                    } catch (error2) {
+                      try {
+                        passwordField = page.locator('input[type="password"]');
+                        await passwordField.waitFor({ state: 'visible', timeout: 5000 });
+                        console.log('✅ Found password field by type');
+                      } catch (error3) {
+                        console.log('❌ Could not find password field');
+                        throw new Error('Password field not found');
+                      }
+                    }
+                  }
+                  
+                  // Fill password field
+                  console.log('🔒 Filling password field...');
+                  await passwordField.fill(promptContent.includes('invalid') ? 'invalidPassword' : 'admin123');
+                  console.log('✅ Password filled');
+                  
+                  // Wait for password field to be filled (smart wait)
+                  await passwordField.waitFor({ state: 'visible' });
+                  console.log('✅ Password field is ready for next action');
+                  
+                  // Try multiple selectors for login button
+                  console.log('🔘 Looking for login button...');
+                  let loginButton = null;
+                  try {
+                    loginButton = page.getByRole('button', { name: 'Login' });
+                    await loginButton.waitFor({ state: 'visible', timeout: 5000 });
+                    console.log('✅ Found login button by role');
+                  } catch (error) {
+                    try {
+                      loginButton = page.locator('button[type="submit"]');
+                      await loginButton.waitFor({ state: 'visible', timeout: 5000 });
+                      console.log('✅ Found login button by type');
+                    } catch (error2) {
+                      try {
+                        loginButton = page.locator('input[type="submit"]');
+                        await loginButton.waitFor({ state: 'visible', timeout: 5000 });
+                        console.log('✅ Found login button by input type');
+                      } catch (error3) {
+                        console.log('❌ Could not find login button');
+                        throw new Error('Login button not found');
+                      }
+                    }
+                  }
+                  
+                  // Click login button
+                  console.log('🔘 Clicking login button...');
+                  await loginButton.click();
+                  console.log('✅ Login button clicked');
+                  
+                  // Wait for navigation or error message (smart wait)
+                  try {
+                    // Wait for either dashboard (success) or error message (failure)
+                    await Promise.race([
+                      page.getByRole('heading', { name: 'Dashboard' }).waitFor({ state: 'visible', timeout: 5000 }),
+                      page.locator('.oxd-alert-content-text').waitFor({ state: 'visible', timeout: 5000 })
+                    ]);
+                    console.log('✅ Login result is visible');
+                  } catch (error) {
+                    console.log('⚠️ Login result timeout - checking current state');
+                  }
+                  
+                  // Check for success or error
+                  try {
+                    const dashboard = page.getByRole('heading', { name: 'Dashboard' });
+                    await dashboard.waitFor({ state: 'visible', timeout: 5000 });
+                    console.log('✅ Login successful - Dashboard found');
+                  } catch (error) {
+                    console.log('❌ Login failed - Checking for error message');
+                    try {
+                      const errorMsg = page.locator('.oxd-alert-content-text');
+                      if (await errorMsg.isVisible()) {
+                        const errorText = await errorMsg.textContent();
+                        console.log('⚠️ Error message found:', errorText);
+                      }
+                    } catch (error2) {
+                      console.log('⚠️ No specific error message found');
+                    }
+                  }
+                }
+                
+                // Check if this is an HR admin workflow
+                else if (promptContent.toLowerCase().includes('admin') && promptContent.toLowerCase().includes('add')) {
+                  console.log('👥 Performing HR Admin workflow...');
+                  
+                  // First, we need to login
+                  console.log('🔐 Step 1: Login first...');
+                  
+                  // Username field
+                  const usernameField = page.getByPlaceholder('Username');
+                  await usernameField.waitFor({ state: 'visible', timeout: 10000 });
+                  await usernameField.fill('Admin');
+                  console.log('✅ Username filled');
+                  
+                  // Wait for username field to be ready
+                  await usernameField.waitFor({ state: 'visible' });
+                  
+                  // Password field
+                  const passwordField = page.getByPlaceholder('Password');
+                  await passwordField.waitFor({ state: 'visible', timeout: 10000 });
+                  await passwordField.fill('admin123');
+                  console.log('✅ Password filled');
+                  
+                  // Wait for password field to be ready
+                  await passwordField.waitFor({ state: 'visible' });
+                  
+                  // Login button
+                  const loginButton = page.getByRole('button', { name: 'Login' });
+                  await loginButton.waitFor({ state: 'visible', timeout: 10000 });
+                  await loginButton.click();
+                  console.log('✅ Login button clicked');
+                  
+                  // Wait for dashboard to appear (smart wait)
+                  await page.getByRole('heading', { name: 'Dashboard' }).waitFor({ state: 'visible', timeout: 10000 });
+                  console.log('✅ Logged in successfully');
+                  
+                  // Step 2: Click Admin from sidebar
+                  console.log('👤 Step 2: Clicking Admin from sidebar...');
+                  const adminLink = page.locator('text=Admin').first();
+                  await adminLink.waitFor({ state: 'visible', timeout: 10000 });
+                  await adminLink.click();
+                  console.log('✅ Admin link clicked');
+                  
+                  // Wait for Admin page to load (smart wait)
+                  await page.waitForLoadState('networkidle');
+                  console.log('✅ Admin page loaded');
+                  
+                  // Step 3: Click Add button
+                  console.log('➕ Step 3: Clicking Add button...');
+                  const addButton = page.locator('button:has-text("Add")').first();
+                  await addButton.waitFor({ state: 'visible', timeout: 10000 });
+                  await addButton.click();
+                  console.log('✅ Add button clicked');
+                  
+                  // Wait for Add User form to load (smart wait)
+                  await page.waitForLoadState('networkidle');
+                  console.log('✅ Add User form loaded');
+                  
+                  // Step 4: Select User Role: Admin
+                  console.log('👑 Step 4: Selecting User Role as Admin...');
+                  const userRoleDropdown = page.locator('.oxd-select-text').first();
+                  await userRoleDropdown.waitFor({ state: 'visible', timeout: 10000 });
+                  await userRoleDropdown.click();
+                  
+                  // Wait for dropdown options to appear (smart wait)
+                  const adminOption = page.locator('text=Admin').first();
+                  await adminOption.waitFor({ state: 'visible', timeout: 5000 });
+                  await adminOption.click();
+                  console.log('✅ User Role selected as Admin');
+                  
+                  // Wait for selection to be applied (smart wait)
+                  await userRoleDropdown.waitFor({ state: 'visible' });
+                  console.log('✅ User Role selection applied');
+                  
+                  // Step 5: Enter Employee Name
+                  console.log('👤 Step 5: Entering Employee Name...');
+                  const employeeNameField = page.locator('input[placeholder*="Employee Name"]').first();
+                  await employeeNameField.waitFor({ state: 'visible', timeout: 10000 });
+                  await employeeNameField.fill('FirstAutomation123');
+                  console.log('✅ Employee Name filled');
+                  
+                  // Wait for employee name field to be ready (smart wait)
+                  await employeeNameField.waitFor({ state: 'visible' });
+                  console.log('✅ Employee Name field is ready');
+                  
+                  // Step 6: Select Status: Enabled
+                  console.log('✅ Step 6: Selecting Status as Enabled...');
+                  const statusDropdown = page.locator('.oxd-select-text').nth(1);
+                  await statusDropdown.waitFor({ state: 'visible', timeout: 10000 });
+                  await statusDropdown.click();
+                  
+                  // Wait for status dropdown options to appear (smart wait)
+                  const enabledOption = page.locator('text=Enabled').first();
+                  await enabledOption.waitFor({ state: 'visible', timeout: 5000 });
+                  await enabledOption.click();
+                  console.log('✅ Status selected as Enabled');
+                  
+                  // Wait for status selection to be applied (smart wait)
+                  await statusDropdown.waitFor({ state: 'visible' });
+                  console.log('✅ Status selection applied');
+                  
+                  // Step 7: Enter Username
+                  console.log('👤 Step 7: Entering Username...');
+                  const usernameField2 = page.locator('input[placeholder*="Username"]').first();
+                  await usernameField2.waitFor({ state: 'visible', timeout: 10000 });
+                  await usernameField2.fill('ravi11');
+                  console.log('✅ Username filled');
+                  
+                  // Wait for username field to be ready (smart wait)
+                  await usernameField2.waitFor({ state: 'visible' });
+                  console.log('✅ Username field is ready');
+                  
+                  // Step 8: Enter Password
+                  console.log('🔒 Step 8: Entering Password...');
+                  const passwordField2 = page.locator('input[type="password"]').first();
+                  await passwordField2.waitFor({ state: 'visible', timeout: 10000 });
+                  await passwordField2.fill('ravi12311');
+                  console.log('✅ Password filled');
+                  
+                  // Wait for password field to be ready (smart wait)
+                  await passwordField2.waitFor({ state: 'visible' });
+                  console.log('✅ Password field is ready');
+                  
+                  // Step 9: Enter Confirm Password
+                  console.log('🔒 Step 9: Entering Confirm Password...');
+                  const confirmPasswordField = page.locator('input[type="password"]').nth(1);
+                  await confirmPasswordField.waitFor({ state: 'visible', timeout: 10000 });
+                  await confirmPasswordField.fill('ravi123343');
+                  console.log('✅ Confirm Password filled');
+                  
+                  // Wait for confirm password field to be ready (smart wait)
+                  await confirmPasswordField.waitFor({ state: 'visible' });
+                  console.log('✅ Confirm Password field is ready');
+                  
+                  // Step 10: Click Save button
+                  console.log('💾 Step 10: Clicking Save button...');
+                  const saveButton = page.locator('button[type="submit"]').first();
+                  await saveButton.waitFor({ state: 'visible', timeout: 10000 });
+                  await saveButton.click();
+                  console.log('✅ Save button clicked');
+                  
+                  // Wait for save result (smart wait)
+                  try {
+                    // Wait for either success message or error message
+                    await Promise.race([
+                      page.locator('.oxd-toast-content').waitFor({ state: 'visible', timeout: 10000 }),
+                      page.locator('.oxd-alert-content-text').waitFor({ state: 'visible', timeout: 10000 }),
+                      page.waitForLoadState('networkidle')
+                    ]);
+                    console.log('✅ Save operation completed');
+                  } catch (error) {
+                    console.log('⚠️ Save operation timeout - checking current state');
+                  }
+                  console.log('✅ HR Admin workflow completed!');
+                }
+                
+                // Default action for other prompts
+                else {
+                  console.log('🎯 Performing general actions based on prompt...');
+                  console.log('📝 Prompt content:', promptContent);
+                  
+                  // Try to find any interactive elements and perform basic actions
+                  try {
+                    const buttons = await page.locator('button').count();
+                    const inputs = await page.locator('input').count();
+                    const links = await page.locator('a').count();
+                    
+                    console.log(`🔍 Found ${buttons} buttons, ${inputs} inputs, ${links} links`);
+                    
+                    if (buttons > 0) {
+                      console.log('🔘 Clicking first available button...');
+                      const firstButton = page.locator('button').first();
+                      await firstButton.click();
+                      console.log('✅ Button clicked');
+                    }
+                  } catch (error) {
+                    console.log('⚠️ Could not perform general actions:', error.message);
+                  }
+                }
+    
+                // Take screenshot
+                console.log('📸 Taking screenshot...');
+                await page.screenshot({ path: 'realtime-llm-interaction.png' });
+                console.log('✅ Screenshot saved');
+                
+                // Wait for any final UI updates (smart wait)
+                console.log('👀 Waiting for final UI updates...');
+                try {
+                  await page.waitForLoadState('networkidle', { timeout: 3000 });
+                  console.log('✅ Final UI state stabilized');
+                } catch (error) {
+                  console.log('⚠️ Final UI wait timeout - proceeding');
+                }
+    
+    // Close browser
+    await browser.close();
+    console.log('🔚 Browser closed');
+    
+  } catch (error) {
+    console.error('❌ Error in real-time LLM interaction:', error);
+    throw error;
+  }
+}
+
+// Helper function to execute test code in the open browser
+async function executeTestInBrowser(testCode, baseUrl) {
+  try {
+    console.log('🎭 Executing test code in the open browser...');
+    console.log('👀 Watch the browser window for real-time actions!');
+    console.log('🔍 Test code length:', testCode.length);
+    console.log('🔍 Base URL:', baseUrl);
+    
+    // Create a temporary test file
+    const testFilePath = path.join(__dirname, '../tests/generated/realtime-execution.spec.ts');
+    console.log('🔍 Test file path:', testFilePath);
+    console.log('🔍 Test code preview:', testCode.substring(0, 200) + '...');
+    
+    // Ensure the directory exists
+    const testDir = path.dirname(testFilePath);
+    if (!fs.existsSync(testDir)) {
+      fs.mkdirSync(testDir, { recursive: true });
+      console.log('📁 Created test directory:', testDir);
+    }
+    
+    fs.writeFileSync(testFilePath, testCode);
+    console.log('✅ Test file written successfully');
+    
+    console.log(`📝 Test file created: ${testFilePath}`);
+    console.log('🚀 Running Playwright test in headed mode...');
+    console.log('🎭 This will open a new browser window and perform the actions...');
+    console.log('👀 Watch for the browser to navigate, fill forms, and click buttons!');
+    
+    // Execute the test using Playwright with more visible options
+    const { spawn } = require('child_process');
+    const testProcess = spawn('npx', [
+      'playwright', 'test', testFilePath, 
+      '--headed', 
+      '--workers=1',
+      '--timeout=120000',
+      '--reporter=list',
+      '--project=chromium',
+      '--debug'
+    ], {
+      stdio: 'pipe',
+      cwd: path.join(__dirname, '..'),
+      env: { 
+        ...process.env, 
+        PWDEBUG: '1',
+        DEBUG: 'pw:api',
+        HEADLESS: 'false'
+      }
+    });
+    
+    testProcess.stdout.on('data', (data) => {
+      console.log(`📊 Test output: ${data.toString()}`);
+    });
+    
+    testProcess.stderr.on('data', (data) => {
+      console.log(`⚠️ Test error: ${data.toString()}`);
+    });
+    
+    // Add more detailed logging
+    console.log('🎭 Test process started with PID:', testProcess.pid);
+    console.log('👀 Watch for browser windows opening and performing actions...');
+    console.log('🎬 The test will now execute in a new browser window...');
+    console.log('📱 You should see:');
+    console.log('   1. A new browser window opening');
+    console.log('   2. Navigation to the login page');
+    console.log('   3. Form filling with username/password');
+    console.log('   4. Login button click');
+    console.log('   5. Result verification');
+    
+    testProcess.on('close', (code) => {
+      console.log(`✅ Test execution completed with code: ${code}`);
+      // Clean up the temporary test file
+      try {
+        fs.unlinkSync(testFilePath);
+        console.log('🧹 Temporary test file cleaned up');
+      } catch (error) {
+        console.log('⚠️ Could not clean up temporary test file:', error.message);
+      }
+    });
+    
+    // Wait for the test to complete (with timeout)
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        console.log('⏰ Test execution timeout reached');
+        resolve();
+      }, 30000); // 30 second timeout
+      
+      testProcess.on('close', (code) => {
+        clearTimeout(timeout);
+        resolve();
+      });
+      
+      testProcess.on('error', (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+    });
+    
+    console.log('🎯 Real-time browser interaction completed!');
+    
+  } catch (error) {
+    console.error('❌ Error executing test in browser:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error message:', error.message);
+    throw error;
+  }
+}
+
+// Fallback function to generate simple test code when LLM fails
+function generateFallbackTestCode(promptContent, testName, baseUrl) {
+  console.log('⚠️ Using fallback template generation');
+  
+  return `
+    // Fallback test code - LLM generation failed
+    // This is a basic template that should be replaced with LLM-generated code
+    console.log('⚠️ Using fallback test template');
+    console.log('🎯 Prompt was:', ${JSON.stringify(promptContent.substring(0, 100))});
+    
+    // Basic test structure - will need to be customized based on prompt
+    // For now, just navigate and wait
+    await page.waitForLoadState('networkidle');
+    console.log('✅ Page loaded');
+    
+    // TODO: Add test steps based on prompt: ${promptContent.substring(0, 200)}
+    `;
+}
+
+// Helper function to perform real-time step-by-step LLM interaction
+async function performStepByStepLLMInteraction(promptContent, testName, baseUrl, environment) {
+  const { chromium } = require('playwright');
+  const llmService = new LLMService();
+  
+  // Open browser IMMEDIATELY
+  console.log('🚀 Opening browser IMMEDIATELY for real-time interaction...');
+  const browser = await chromium.launch({ 
+    headless: false, 
+    slowMo: 1000,  // Slow down for visibility
+    devtools: false 
+  });
+  
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  
+  console.log('✅ Browser opened - navigating to:', baseUrl);
+  await page.goto(baseUrl);
+  await page.waitForLoadState('networkidle');
+  console.log('✅ Page loaded - LLM will now analyze and interact step-by-step');
+  
+  const recordedSteps = [];
+  let stepNumber = 1;
+  const maxSteps = 50; // Prevent infinite loops
+  let previousState = '';
+  
+  while (stepNumber <= maxSteps) {
+    try {
+      console.log(`\n📊 Step ${stepNumber}: Analyzing current page state...`);
+      
+      // Capture current page state for LLM analysis
+      const pageState = await page.evaluate(() => {
+        return {
+          url: window.location.href,
+          title: document.title,
+          visibleText: document.body.innerText.substring(0, 1000),
+          buttons: Array.from(document.querySelectorAll('button')).map(btn => ({
+            text: btn.textContent?.trim() || '',
+            visible: btn.offsetParent !== null
+          })).filter(btn => btn.visible && btn.text),
+          inputs: Array.from(document.querySelectorAll('input, textarea')).map(input => ({
+            type: input.type || 'text',
+            placeholder: input.placeholder || '',
+            name: input.name || '',
+            visible: input.offsetParent !== null
+          })).filter(input => input.visible),
+          links: Array.from(document.querySelectorAll('a')).map(link => ({
+            text: link.textContent?.trim() || '',
+            href: link.href || '',
+            visible: link.offsetParent !== null
+          })).filter(link => link.visible && link.text),
+          headings: Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')).map(h => ({
+            level: h.tagName,
+            text: h.textContent?.trim() || ''
+          })).filter(h => h.text)
+        };
+      });
+      
+      // Check if state has changed (to avoid infinite loops)
+      const currentState = JSON.stringify(pageState);
+      if (currentState === previousState) {
+        console.log('⚠️ Page state unchanged, waiting a bit...');
+        await page.waitForTimeout(2000);
+      }
+      previousState = currentState;
+      
+      // Create LLM prompt for next action
+      const actionPrompt = `You are controlling a browser in real-time. Analyze the current page state and determine the NEXT ACTION to complete the user's goal.
+
+## Current Page State:
+URL: ${pageState.url}
+Title: ${pageState.title}
+Visible Text (first 1000 chars): ${pageState.visibleText.substring(0, 500)}
+
+Available Buttons: ${JSON.stringify(pageState.buttons.slice(0, 10))}
+Available Input Fields: ${JSON.stringify(pageState.inputs.slice(0, 10))}
+Available Links: ${JSON.stringify(pageState.links.slice(0, 10))}
+Headings: ${JSON.stringify(pageState.headings.slice(0, 5))}
+
+## User's Goal:
+${promptContent}
+
+## Previous Actions Taken:
+${recordedSteps.length > 0 ? recordedSteps.slice(-5).map((s, i) => `${i + 1}. ${s}`).join('\n') : 'None yet'}
+
+## Task:
+Analyze the current page and determine the NEXT SINGLE ACTION needed to progress toward the user's goal.
+
+Return ONLY a JSON object with this exact structure:
+{
+  "action": "click" | "fill" | "navigate" | "wait" | "complete",
+  "selector": "description of element to interact with (e.g., 'button with text Login', 'input with placeholder Username')",
+  "value": "value to fill (only for fill action)",
+  "waitFor": "what to wait for after action (e.g., 'networkidle', 'navigation', 'element visible')",
+  "reason": "brief explanation of why this action"
+}
+
+If the goal is complete, return: {"action": "complete", "reason": "goal achieved"}
+
+IMPORTANT: 
+- Return ONLY valid JSON, no markdown, no explanations
+- Choose the most logical next step based on the page state
+- Use dynamic waiting based on what you see on the page
+- Be specific about selectors based on visible elements`;
+
+      console.log('🤖 Asking LLM for next action...');
+      
+      // Get next action from LLM
+      const llmResponse = await llmService.generateCode(actionPrompt, environment, {
+        testName: testName,
+        maxTokens: 500 // Limit response size for action decisions
+      });
+      
+      // Parse LLM response to extract JSON
+      let actionData = null;
+      try {
+        // Try to extract JSON from response
+        const jsonMatch = llmResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          actionData = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('No JSON found in LLM response');
+        }
+      } catch (parseError) {
+        console.error('❌ Failed to parse LLM action response:', llmResponse.substring(0, 200));
+        // Fallback: try to complete or exit
+        actionData = { action: 'complete', reason: 'LLM response parsing failed' };
+      }
+      
+      console.log(`📋 LLM Action: ${actionData.action} - ${actionData.reason}`);
+      
+      // Check if complete
+      if (actionData.action === 'complete') {
+        console.log('✅ Goal completed!', actionData.reason);
+        break;
+      }
+      
+      // Execute the action
+      let executed = false;
+      
+      if (actionData.action === 'click') {
+        // Find and click the element
+        const selector = actionData.selector || '';
+        console.log(`🔘 Clicking: ${selector}`);
+        
+        // Try multiple selector strategies
+        try {
+          // Try by text first
+          if (selector.toLowerCase().includes('button')) {
+            const buttonText = selector.match(/text[:\s]+([^,]+)/i)?.[1]?.trim() || selector.replace(/button/i, '').trim();
+            if (buttonText) {
+              const btn = page.getByRole('button', { name: new RegExp(buttonText, 'i') });
+              await btn.waitFor({ state: 'visible', timeout: 10000 });
+              await btn.click();
+              executed = true;
+              console.log(`✅ Clicked button: ${buttonText}`);
+            }
+          }
+          
+          // Try by link text
+          if (!executed && selector.toLowerCase().includes('link')) {
+            const linkText = selector.match(/text[:\s]+([^,]+)/i)?.[1]?.trim() || selector.replace(/link/i, '').trim();
+            if (linkText) {
+              const link = page.getByRole('link', { name: new RegExp(linkText, 'i') });
+              await link.waitFor({ state: 'visible', timeout: 10000 });
+              await link.click();
+              executed = true;
+              console.log(`✅ Clicked link: ${linkText}`);
+            }
+          }
+          
+          // Fallback: try to find by any text
+          if (!executed) {
+            const textMatch = selector.match(/([^,]+)/)?.[1]?.trim();
+            if (textMatch) {
+              const element = page.getByText(new RegExp(textMatch, 'i')).first();
+              await element.waitFor({ state: 'visible', timeout: 10000 });
+              await element.click();
+              executed = true;
+              console.log(`✅ Clicked element with text: ${textMatch}`);
+            }
+          }
+        } catch (clickError) {
+          console.error(`❌ Failed to click ${selector}:`, clickError.message);
+        }
+        
+      } else if (actionData.action === 'fill') {
+        // Fill an input field
+        const selector = actionData.selector || '';
+        const value = actionData.value || '';
+        console.log(`✍️ Filling ${selector} with: ${value}`);
+        
+        try {
+          // Try by placeholder
+          if (selector.toLowerCase().includes('placeholder') || selector.toLowerCase().includes('username') || selector.toLowerCase().includes('password')) {
+            const placeholderMatch = selector.match(/placeholder[:\s]+([^,]+)/i)?.[1]?.trim() || 
+                                       (selector.toLowerCase().includes('username') ? 'username' : '') ||
+                                       (selector.toLowerCase().includes('password') ? 'password' : '');
+            
+            if (placeholderMatch) {
+              const input = page.getByPlaceholder(new RegExp(placeholderMatch, 'i'));
+              await input.waitFor({ state: 'visible', timeout: 10000 });
+              await input.fill(value);
+              executed = true;
+              console.log(`✅ Filled input by placeholder: ${placeholderMatch}`);
+            }
+          }
+          
+          // Try by name attribute
+          if (!executed) {
+            const nameMatch = selector.match(/name[:\s]+([^,]+)/i)?.[1]?.trim();
+            if (nameMatch) {
+              const input = page.locator(`input[name="${nameMatch}"], textarea[name="${nameMatch}"]`);
+              await input.waitFor({ state: 'visible', timeout: 10000 });
+              await input.fill(value);
+              executed = true;
+              console.log(`✅ Filled input by name: ${nameMatch}`);
+            }
+          }
+        } catch (fillError) {
+          console.error(`❌ Failed to fill ${selector}:`, fillError.message);
+        }
+        
+      } else if (actionData.action === 'wait') {
+        // Wait for something
+        const waitFor = actionData.waitFor || 'networkidle';
+        console.log(`⏳ Waiting for: ${waitFor}`);
+        
+        try {
+          if (waitFor === 'networkidle') {
+            await page.waitForLoadState('networkidle', { timeout: 10000 });
+          } else if (waitFor.includes('visible') || waitFor.includes('element')) {
+            // Try to wait for a specific element
+            const elementMatch = waitFor.match(/element[:\s]+([^,]+)/i)?.[1]?.trim();
+            if (elementMatch) {
+              const element = page.locator(elementMatch).first();
+              await element.waitFor({ state: 'visible', timeout: 10000 });
+            }
+          } else {
+            await page.waitForTimeout(2000);
+          }
+          executed = true;
+          console.log(`✅ Waited for: ${waitFor}`);
+        } catch (waitError) {
+          console.error(`❌ Wait failed:`, waitError.message);
+        }
+      }
+      
+      if (executed) {
+        // Record the step with full details
+        let stepRecord = `${actionData.action}: ${actionData.selector || actionData.waitFor || 'N/A'}`;
+        if (actionData.action === 'fill' && actionData.value) {
+          stepRecord += ` with ${actionData.value}`;
+        }
+        recordedSteps.push(stepRecord);
+        
+        // Wait for page to update based on actionData.waitFor
+        if (actionData.waitFor) {
+          try {
+            if (actionData.waitFor === 'networkidle') {
+              await page.waitForLoadState('networkidle', { timeout: 5000 });
+            } else if (actionData.waitFor === 'navigation') {
+              await page.waitForURL('**', { timeout: 5000 });
+            } else {
+              await page.waitForTimeout(1000); // Default wait
+            }
+          } catch (waitError) {
+            // Continue even if wait times out
+            console.log('⚠️ Wait timeout, continuing...');
+          }
+        } else {
+          // Default wait after action
+          await page.waitForTimeout(1000);
+        }
+      }
+      
+      stepNumber++;
+      
+    } catch (stepError) {
+      console.error(`❌ Error in step ${stepNumber}:`, stepError.message);
+      stepNumber++;
+      
+      // If too many errors, break
+      if (stepNumber > maxSteps) {
+        console.log('⚠️ Maximum steps reached or too many errors');
+        break;
+      }
+    }
+  }
+  
+  // Take final screenshot
+  await page.screenshot({ path: 'realtime-llm-interaction-final.png' });
+  console.log('📸 Final screenshot saved');
+  
+  // Generate final spec code from recorded steps
+  const specCode = generateSpecFromRecordedSteps(recordedSteps, testName, baseUrl);
+  
+  await browser.close();
+  console.log('🔚 Browser closed');
+  
+  return {
+    specCode,
+    recordedSteps,
+    success: true
+  };
+}
+
+// Helper function to generate spec code from recorded steps
+function generateSpecFromRecordedSteps(recordedSteps, testName, baseUrl) {
+  // Convert recorded steps to actual Playwright code
+  const stepCode = recordedSteps.map((step, i) => {
+    const stepParts = step.split(':');
+    const action = stepParts[0]?.trim() || '';
+    const selector = stepParts.slice(1).join(':').trim() || '';
+    
+    if (action === 'click') {
+      // Try to extract meaningful selector info
+      if (selector.includes('button') || selector.toLowerCase().includes('login') || selector.toLowerCase().includes('save')) {
+        const buttonText = selector.match(/([^,]+)/)?.[1]?.trim() || selector.replace(/button/i, '').trim();
+        return `    // Step ${i + 1}: Click ${selector}
+    const btn${i} = page.getByRole('button', { name: /${buttonText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/i });
+    await btn${i}.waitFor({ state: 'visible', timeout: 10000 });
+    await btn${i}.click();
+    console.log('✅ Clicked: ${buttonText}');
+    await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(1000);`;
+      } else if (selector.includes('link')) {
+        const linkText = selector.match(/([^,]+)/)?.[1]?.trim() || selector.replace(/link/i, '').trim();
+        return `    // Step ${i + 1}: Click ${selector}
+    const link${i} = page.getByRole('link', { name: /${linkText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/i });
+    await link${i}.waitFor({ state: 'visible', timeout: 10000 });
+    await link${i}.click();
+    console.log('✅ Clicked link: ${linkText}');
+    await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(1000);`;
+      } else {
+        return `    // Step ${i + 1}: ${step}
+    // Note: This step was recorded but needs manual implementation
+    await page.waitForTimeout(1000);`;
+      }
+    } else if (action === 'fill') {
+      const fillParts = selector.split(' with ');
+      const fieldDesc = fillParts[0]?.trim() || '';
+      const value = fillParts[1]?.trim() || '';
+      
+      if (fieldDesc.toLowerCase().includes('username')) {
+        return `    // Step ${i + 1}: Fill username
+    const usernameField = page.getByPlaceholder(/username/i);
+    await usernameField.waitFor({ state: 'visible', timeout: 10000 });
+    await usernameField.fill('${value || process.env.UI_USERNAME || 'Admin'}');
+    console.log('✅ Filled username');
+    await page.waitForTimeout(500);`;
+      } else if (fieldDesc.toLowerCase().includes('password')) {
+        return `    // Step ${i + 1}: Fill password
+    const passwordField = page.getByPlaceholder(/password/i);
+    await passwordField.waitFor({ state: 'visible', timeout: 10000 });
+    await passwordField.fill('${value || process.env.UI_PASSWORD || 'admin123'}');
+    console.log('✅ Filled password');
+    await page.waitForTimeout(500);`;
+      } else {
+        return `    // Step ${i + 1}: ${step}
+    // Note: This fill step was recorded but needs manual implementation
+    await page.waitForTimeout(1000);`;
+      }
+    } else if (action === 'wait') {
+      return `    // Step ${i + 1}: Wait ${selector}
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    console.log('✅ Waited for: ${selector}');`;
+    } else {
+      return `    // Step ${i + 1}: ${step}
+    await page.waitForTimeout(1000);`;
+    }
+  }).join('\n\n');
+  
+  return `import { test, expect } from '@playwright/test';
+
+test.describe('Real-time Browser Interaction', () => {
+  test('${testName}', async ({ page }) => {
+    console.log('🚀 Starting real-time browser interaction...');
+    
+    const TARGET_URL = process.env.BASE_URL || '${baseUrl}';
+    await page.goto(TARGET_URL);
+    await page.waitForLoadState('networkidle');
+    console.log('✅ Page loaded');
+    
+    // Recorded steps from real-time LLM interaction:
+${stepCode || '    // No steps were recorded'}
+    
+    console.log('✅ Test execution completed!');
+  });
+});`;
+}
+
+// Helper function to process LLM with real-time browser
+async function processLLMWithRealtimeBrowser(options) {
+  const { promptContent, testName, testType, environment, parsedSteps, baseUrl, browserInstance } = options;
+  
+  try {
+    console.log('🚀 REAL-TIME BROWSER INTERACTION MODE WITH LLM');
+    console.log('🌐 Opening browser IMMEDIATELY for step-by-step LLM interaction...');
+    console.log('🎯 Prompt:', promptContent);
+    
+    // IMMEDIATELY open browser and let LLM interact step-by-step
+    console.log('🚀 Browser will open IMMEDIATELY and LLM will interact step-by-step...');
+    const realtimeResult = await performStepByStepLLMInteraction(promptContent, testName, baseUrl, environment);
+    
+    if (!realtimeResult.success) {
+      throw new Error('Step-by-step LLM interaction failed');
+    }
+    
+    // Use the spec code generated from recorded steps
+    const specCode = realtimeResult.specCode;
+    console.log('✅ Generated spec code from real-time interactions (length:', specCode.length, 'chars)');
+    console.log('📝 Recorded steps:', realtimeResult.recordedSteps.length);
+    
+    // Save the spec file to the proper location
+    const specFilePath = path.join(__dirname, '../../tests/projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts', 
+      `${Date.now()}-${testName.toLowerCase().replace(/\s+/g, '-')}.spec.ts`);
+    
+    // Ensure the directory exists
+    const specDir = path.dirname(specFilePath);
+    if (!fs.existsSync(specDir)) {
+      fs.mkdirSync(specDir, { recursive: true });
+      console.log('📁 Created spec directory:', specDir);
+    }
+    
+    // Save the spec file
+    fs.writeFileSync(specFilePath, specCode);
+    console.log('💾 Spec file saved:', specFilePath);
+    
+    return {
+      success: true,
+      testCode: specCode,
+      specFilePath: specFilePath,
+      message: 'Real-time step-by-step browser interaction completed',
+      realtimeMode: true,
+      recordedSteps: realtimeResult.recordedSteps
+    };
+    
+  } catch (error) {
+    console.error('Error in IMMEDIATE real-time browser interaction:', error);
+    throw error;
+  }
+}
 
 // Helper function to clean generated code
 function cleanGeneratedCode(rawCode) {
@@ -157,7 +1251,15 @@ function launchBrowserTest(testFilePath, environment) {
         PLAYWRIGHT_BROWSERS_PATH: browsersPath,
         BASE_URL: environment?.variables?.BASE_URL || 'http://localhost:5050',
         BROWSER_TYPE: environment?.variables?.BROWSER || 'chromium',
-        HEADLESS_MODE: environment?.variables?.HEADLESS || 'false'
+        HEADLESS_MODE: environment?.variables?.HEADLESS || 'false',
+        // API auth/config variables passed through to tests
+        API_TOKEN: environment?.variables?.API_TOKEN || process.env.API_TOKEN || '',
+        API_KEY: environment?.variables?.API_KEY || process.env.API_KEY || '',
+        CLIENT_ID: environment?.variables?.clientId || process.env.CLIENT_ID || '',
+        CLIENT_SECRET: environment?.variables?.clientSecret || process.env.CLIENT_SECRET || '',
+        SCOPE: environment?.variables?.scope || process.env.SCOPE || '',
+        AUTH_URL: environment?.variables?.authUrl || process.env.AUTH_URL || '',
+        TOKEN_URL: environment?.variables?.tokenUrl || process.env.TOKEN_URL || ''
       };
       // Set environment variables for the test
      
@@ -312,6 +1414,79 @@ router.post('/parse-prompt', async (req, res) => {
   }
 });
 
+// Generate Playwright test code with real-time browser interaction
+router.post('/generate-llm-playwright-realtime', async (req, res) => {
+  try {
+    const {
+      promptContent,
+      testName = 'Generated Test',
+      testType = 'UI Test',
+      environment,
+      parsedSteps = [],
+      baseUrl,
+      useExistingSession = false
+    } = req.body;
+    
+    if (!promptContent) {
+      return res.status(400).json({ error: 'Prompt content is required' });
+    }
+
+    if (!environment || !environment.llmConfiguration) {
+      return res.status(400).json({ error: 'Valid LLM environment is required' });
+    }
+
+    console.log('Starting real-time browser interaction mode:', {
+      testName,
+      testType,
+      environment: environment.name,
+      stepCount: parsedSteps.length
+    });
+
+    // First, launch a browser instance for real-time interaction
+    console.log('🔍 About to call launchRealtimeBrowser...');
+    const browserInstance = await launchRealtimeBrowser(environment);
+    console.log('🔍 Browser instance result:', JSON.stringify(browserInstance, null, 2));
+    
+    if (!browserInstance.success) {
+      return res.status(500).json({ 
+        error: 'Failed to launch browser for real-time interaction',
+        details: browserInstance.error 
+      });
+    }
+
+    // Resolve a safe baseUrl for both runtime navigation and the placeholder spec
+    const resolvedBaseUrl = (baseUrl && String(baseUrl).trim())
+      || (environment?.variables?.BASE_URL && String(environment.variables.BASE_URL).trim())
+      || 'http://localhost:5050';
+
+    // Now start LLM processing while browser is running
+    const llmResult = await processLLMWithRealtimeBrowser({
+      promptContent,
+      testName,
+      testType,
+      environment,
+      parsedSteps,
+      baseUrl: resolvedBaseUrl,
+      browserInstance
+    });
+
+    res.json({
+      success: true,
+      testCode: llmResult.testCode,
+      browserInstance: browserInstance,
+      realtimeMode: true,
+      message: 'Real-time browser interaction started successfully'
+    });
+
+  } catch (error) {
+    console.error('Error in real-time browser mode:', error);
+    res.status(500).json({
+      error: 'Failed to start real-time browser interaction',
+      details: error.message
+    });
+  }
+});
+
 // Generate Playwright test code directly from LLM
 router.post('/generate-llm-playwright', async (req, res) => {
   try {
@@ -322,7 +1497,8 @@ router.post('/generate-llm-playwright', async (req, res) => {
       environment,
       parsedSteps = [],
       baseUrl,
-      useExistingSession = false
+      useExistingSession = false,
+      executionMode = 'spec-first' // 'browser-action' or 'spec-first'
     } = req.body;
     
     if (!promptContent) {
@@ -371,7 +1547,11 @@ Create a complete TypeScript Playwright test file with:
 - Error handling: try-catch blocks with screenshot capture on failure
 - Allure reporting: tags, attachments, and proper metadata
 - Proper selectors: use data-testid when possible, fallback to other selectors
-- Wait conditions: use page.waitForSelector() for element visibility
+- Wait conditions: use smart waits instead of hard-coded timeouts
+  * Use page.waitForSelector() for element visibility
+  * Use page.waitForLoadState('networkidle') for page loading
+  * Use element.waitFor({ state: 'visible' }) for element states
+  * NEVER use page.waitForTimeout() - use conditional waits instead
 - Meaningful assertions: verify the test outcome
 
 IMPORTANT SELECTOR RULES - AVOID ELEMENT AMBIGUITY:
@@ -444,6 +1624,17 @@ CRITICAL PLAYWRIGHT SYNTAX RULES:
     await allure.tag('smoke');
   });
 
+CRITICAL SMART WAIT RULES - NO HARD-CODED TIMEOUTS:
+- NEVER use page.waitForTimeout() - it causes flaky tests
+- Use smart waits that wait for specific conditions:
+  * page.waitForSelector() for element visibility
+  * page.waitForLoadState('networkidle') for page loading completion
+  * element.waitFor({ state: 'visible' }) for element states
+  * page.waitForFunction() for custom conditions
+- Wait for navigation: page.waitForURL() or page.waitForLoadState()
+- Wait for form submissions: wait for success/error messages to appear
+- Use Promise.race() for multiple possible outcomes (success OR error)
+
 CRITICAL SELECTOR RULES - PREVENT ELEMENT AMBIGUITY:
 - NEVER use getByText() for common text that appears multiple times (Dashboard, Home, Login, Submit, Save, Cancel, Edit, Delete)
 - ALWAYS use role-based selectors to avoid strict mode violations:
@@ -499,7 +1690,7 @@ Return ONLY the complete TypeScript test file code without any explanations or m
       throw new Error('LLM generated empty or invalid code. Please check your LLM configuration and try again.');
     }
     
-    console.log('LLM code generation successful, proceeding with test execution');
+    console.log(`LLM code generation successful, execution mode: ${executionMode}`);
 
     // Generate file path for saving
     const filePath = codeGenerator.generateFilePath(
@@ -515,18 +1706,38 @@ Return ONLY the complete TypeScript test file code without any explanations or m
     const savedPath = await codeGenerator.saveTestFile(testCode, filePath);
     console.log('Saved path in route:', savedPath);
 
-    // Launch browser test after saving the file
+    // Handle execution based on mode
     let browserLaunchResult = null;
-    try {
-      console.log('Attempting to launch browser test for:', savedPath);
-      browserLaunchResult = await launchBrowserTest(savedPath, environment);
-      console.log('Browser launch result:', browserLaunchResult);
-    } catch (error) {
-      console.error('Failed to launch browser test:', error);
+    
+    if (executionMode === 'browser-action') {
+      // Browser action mode - launch browser immediately for real-time interaction
+      try {
+        console.log('Browser Action Mode: Launching browser for real-time interaction');
+        
+        // For browser action mode, we need to launch the browser BEFORE LLM processing
+        // This allows users to see the browser actions in real-time
+        browserLaunchResult = await launchBrowserTest(savedPath, environment);
+        console.log('Browser launch result:', browserLaunchResult);
+        
+        // Send real-time updates to frontend about browser actions
+        if (browserLaunchResult.success) {
+          console.log('Browser launched successfully for real-time interaction');
+        }
+      } catch (error) {
+        console.error('Failed to launch browser test:', error);
+        browserLaunchResult = {
+          success: false,
+          error: error.message || 'Unknown error',
+          message: 'Failed to launch browser test'
+        };
+      }
+    } else {
+      // Spec-first mode - just save the file, no immediate execution
+      console.log('Spec-First Mode: Test file saved, ready for manual execution');
       browserLaunchResult = {
-        success: false,
-        error: error.message || 'Unknown error',
-        message: 'Failed to launch browser test'
+        success: true,
+        message: 'Test file saved successfully. Ready for execution.',
+        executionMode: 'spec-first'
       };
     }
 
@@ -963,7 +2174,18 @@ router.post('/generate-and-run', async (req, res) => {
     // Run Playwright test with explicit browsers path
     const projectRoot = path.join(__dirname, '../..');
     const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(projectRoot, '.local-browsers');
-    const env = { ...process.env, PLAYWRIGHT_BROWSERS_PATH: browsersPath };
+    const env = { 
+      ...process.env, 
+      PLAYWRIGHT_BROWSERS_PATH: browsersPath,
+      // Propagate API auth to single-test runs too
+      API_TOKEN: environment?.variables?.API_TOKEN || process.env.API_TOKEN || '',
+      API_KEY: environment?.variables?.API_KEY || process.env.API_KEY || '',
+      CLIENT_ID: environment?.variables?.clientId || process.env.CLIENT_ID || '',
+      CLIENT_SECRET: environment?.variables?.clientSecret || process.env.CLIENT_SECRET || '',
+      SCOPE: environment?.variables?.scope || process.env.SCOPE || '',
+      AUTH_URL: environment?.variables?.authUrl || process.env.AUTH_URL || '',
+      TOKEN_URL: environment?.variables?.tokenUrl || process.env.TOKEN_URL || ''
+    };
     const playwrightProcess = spawn('npx', ['playwright', 'test', relativePath, '--headed', '--project=chromium'], {
       cwd: projectRoot,
       stdio: ['pipe', 'pipe', 'pipe'],

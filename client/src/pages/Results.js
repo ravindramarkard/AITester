@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { FiBarChart2, FiPlay, FiDownload, FiRefreshCw, FiCheckCircle, FiXCircle, FiClock, FiSettings } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import api from '../config/axios';
@@ -295,6 +296,7 @@ const ActionButton = styled.button`
 `;
 
 const Results = () => {
+  const { t } = useTranslation();
   const [stats, setStats] = useState({
     totalTests: 0,
     passed: 0,
@@ -655,7 +657,7 @@ const Results = () => {
           <TitleIcon>
             <FiBarChart2 />
           </TitleIcon>
-          Test Results & Execution
+          {t('results.title')}
         </Title>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <Button className="secondary" onClick={handleResetFromPlaywright}>

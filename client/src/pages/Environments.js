@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { FiPlus, FiSettings, FiTrash2, FiEdit3, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import api from '../config/axios';
@@ -254,6 +255,7 @@ const EmptyDescription = styled.p`
 `;
 
 const Environments = () => {
+  const { t } = useTranslation();
   const [environments, setEnvironments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -356,7 +358,7 @@ const Environments = () => {
           <TitleIcon>
             <FiSettings />
           </TitleIcon>
-          Environments
+          {t('environments.title')}
         </Title>
         <Button
           className="primary"

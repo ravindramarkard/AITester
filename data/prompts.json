@@ -1761,7 +1761,7 @@
     "_id": "416aa238-7683-4e3e-95d6-13f096b58b4d",
     "title": "Test Case  : Create a case without Collaborators assigned ",
     "description": "Test Case  : Create a case without Collaborators assigned ",
-    "promptContent": "Test Case  : Create a case without Collaborators assigned \n1.Navigate to given url\n2.Type username piyush.safaya into Username placeholder field\n3.Type password piyush1234 into Password placeholder field\n4.Click on Log in button\n5. Wait for page load \"cases\"\n6. Click on Create New Case button\n7. Type test case Auto-Sept2 into enter case name placeholder\n8. Type Description \"Automation Desc\" into enter description placeholder\n9. Click on Save Button\n10. Verify created case available in list",
+    "promptContent": "1.Navigate to given url\n2.Type username piyush.safaya into Username placeholder field\n3.Type password piyush1234 into Password placeholder field\n4.Click on Log in button\n5. Wait for page load \"cases\"\n6. Click on Create New Case button\n7. Type test case Auto-Sept2 into enter case name placeholder\n8. Type Description \"Automation Desc\" into enter description placeholder\n9. Click on Save Button\n10. Verify created case available",
     "testType": "UI Test",
     "tags": [
       "smoke"
@@ -1779,15 +1779,6 @@
       "parsedSteps": [
         {
           "stepNumber": 1,
-          "originalText": "Test Case  : Create a case without Collaborators assigned",
-          "action": "unknown",
-          "target": "Test Case Create case without Collaborators assigned",
-          "value": null,
-          "assertion": null,
-          "waitTime": null
-        },
-        {
-          "stepNumber": 2,
           "originalText": "1.Navigate to given url",
           "action": "navigate",
           "target": "1.Navigate given url",
@@ -1796,7 +1787,7 @@
           "waitTime": null
         },
         {
-          "stepNumber": 3,
+          "stepNumber": 2,
           "originalText": "2.Type username piyush.safaya into Username placeholder field",
           "action": "fill",
           "target": "input",
@@ -1805,7 +1796,7 @@
           "waitTime": null
         },
         {
-          "stepNumber": 4,
+          "stepNumber": 3,
           "originalText": "3.Type password piyush1234 into Password placeholder field",
           "action": "fill",
           "target": "input",
@@ -1814,7 +1805,7 @@
           "waitTime": null
         },
         {
-          "stepNumber": 5,
+          "stepNumber": 4,
           "originalText": "4.Click on Log in button",
           "action": "click",
           "target": "button",
@@ -1823,7 +1814,7 @@
           "waitTime": null
         },
         {
-          "stepNumber": 6,
+          "stepNumber": 5,
           "originalText": "5. Wait for page load \"cases\"",
           "action": "wait",
           "target": "cases",
@@ -1832,7 +1823,7 @@
           "waitTime": null
         },
         {
-          "stepNumber": 7,
+          "stepNumber": 6,
           "originalText": "6. Click on Create New Case button",
           "action": "click",
           "target": "button",
@@ -1841,7 +1832,7 @@
           "waitTime": null
         },
         {
-          "stepNumber": 8,
+          "stepNumber": 7,
           "originalText": "7. Type test case Auto-Sept2 into enter case name placeholder",
           "action": "fill",
           "target": "test case Auto-Sept2 into case name placeholder",
@@ -1850,7 +1841,7 @@
           "waitTime": null
         },
         {
-          "stepNumber": 9,
+          "stepNumber": 8,
           "originalText": "8. Type Description \"Automation Desc\" into enter description placeholder",
           "action": "fill",
           "target": "Automation Desc",
@@ -1859,7 +1850,7 @@
           "waitTime": null
         },
         {
-          "stepNumber": 10,
+          "stepNumber": 9,
           "originalText": "9. Click on Save Button",
           "action": "click",
           "target": "button",
@@ -1868,19 +1859,19 @@
           "waitTime": null
         },
         {
-          "stepNumber": 11,
-          "originalText": "10. Verify created case available in list",
+          "stepNumber": 10,
+          "originalText": "10. Verify created case available",
           "action": "assert",
-          "target": "dropdown",
+          "target": "10. created case available",
           "value": null,
-          "assertion": "created case available in list",
+          "assertion": "created case available",
           "waitTime": null
         }
       ],
-      "timestamp": "2025-09-22T12:48:55.365Z"
+      "timestamp": "2025-11-03T12:24:32.817Z"
     },
     "createdAt": "2025-09-22T08:45:44.982Z",
-    "updatedAt": "2025-09-22T12:48:55.366Z"
+    "updatedAt": "2025-11-03T12:24:32.818Z"
   },
   {
     "_id": "861bb60f-38af-4c4d-8d1b-f3f1db4d62d1",
@@ -2032,7 +2023,7 @@
       "timestamp": "2025-09-25T05:21:36.609Z"
     },
     "createdAt": "2025-09-22T12:56:48.063Z",
-    "updatedAt": "2025-09-25T05:21:36.609Z"
+    "updatedAt": "2025-11-03T12:28:47.654Z"
   },
   {
     "_id": "43729306-9069-4734-a09e-683ec12f8d45",
@@ -2300,7 +2291,9 @@
     "description": "Default Case",
     "promptContent": "1.Navigate to given url\n2.Type username piyush.safaya into Username placeholder field\n3.Type password piyush1234 into Password placeholder field\n4.Click on Log in button\n5. Wait for page load \"cases\"\n7. Double click on  full match text \"Default Case\" it is located first position",
     "testType": "UI Test",
-    "tags": [],
+    "tags": [
+      "smoke"
+    ],
     "additionalContext": "",
     "baseUrl": "https://staging-shaheen.dev.g42a.ae/",
     "additionalInformation": "",
@@ -2370,7 +2363,7 @@
       "timestamp": "2025-09-30T05:18:41.583Z"
     },
     "createdAt": "2025-09-29T08:35:33.620Z",
-    "updatedAt": "2025-09-30T05:18:41.585Z"
+    "updatedAt": "2025-10-31T10:49:16.817Z"
   },
   {
     "_id": "eda1984c-a383-464d-ad3f-c9aae8dc18ed",
@@ -2443,7 +2436,7 @@
   },
   {
     "_id": "538ff6dd-1069-4d98-9c6b-0645b1172953",
-    "title": "Login into app, Edit the info and logout the app",
+    "title": "Login into app, Edit the info and logout the app-3",
     "description": "test",
     "promptContent": "Navigate to Provided Url\nUse credentials for login provided on login screen\nValidate once user logged in\nGo left sidebar click and search for My Info\nClick on My Info from the list\nRename Navigate to Provided Url\nUse credentials for login provided on login screen\nValidate once user logged in\nGo left sidebar click and search for My Info\nClick on My Info from the list\nRename Employee Full Name with Ravindra Abu dhabi\nClick on Save button\nValidate successfully updated\nand logout the app ",
     "testType": "UI Test",
@@ -2589,7 +2582,7 @@
       "timestamp": "2025-10-08T15:37:41.244Z"
     },
     "createdAt": "2025-10-08T15:37:41.258Z",
-    "updatedAt": "2025-10-08T15:37:41.258Z"
+    "updatedAt": "2025-10-21T18:50:46.108Z"
   },
   {
     "_id": "c1ad4680-7a46-46b0-aef5-067dbec77f88",
@@ -2733,7 +2726,7 @@
   },
   {
     "_id": "419c952c-8bd9-4105-a4dc-c7bfafdcbfbe",
-    "title": "Automatic test cases",
+    "title": "Automatic test cases-2",
     "description": "",
     "promptContent": "Go this website https://practicetestautomation.com/practice-test-login/\nexecuted mentioned 3 test case on website.",
     "testType": "UI Test",
@@ -2773,11 +2766,11 @@
       "timestamp": "2025-10-08T22:24:09.353Z"
     },
     "createdAt": "2025-10-08T22:24:09.356Z",
-    "updatedAt": "2025-10-08T22:24:09.356Z"
+    "updatedAt": "2025-10-21T18:50:33.061Z"
   },
   {
     "_id": "f2ff9499-d785-4f61-8af0-b8143b270373",
-    "title": "Test invalid login",
+    "title": "Test invalid login-case-1",
     "description": "Test invalid login",
     "promptContent": "Test invalid login case ",
     "testType": "UI Test",
@@ -2808,41 +2801,111 @@
       "timestamp": "2025-10-08T22:52:15.042Z"
     },
     "createdAt": "2025-10-08T22:52:15.044Z",
-    "updatedAt": "2025-10-08T22:52:15.044Z"
+    "updatedAt": "2025-10-21T18:50:01.622Z"
   },
   {
-    "_id": "5e083f28-a957-4148-ad9e-29bc13938925",
-    "title": "Localization testing",
-    "description": "Localization testing",
-    "promptContent": "Verify Localization and provide user missing  fields of Localization",
+    "_id": "8b5f5bc8-1895-42e2-a7b8-cbb65470507e",
+    "title": "Go to Profile1",
+    "description": "Profile",
+    "promptContent": "1.Navigate to given url\n2.Type username piyush.safaya into Username placeholder field\n3.Type password piyush1234 into Password placeholder field\n4.Click on Log in button\n5. Wait for page load case list item\n6. Click on first pop from case list item\n7.  Wait for page load\n8. Click on hyperlink Profile from left side \n9. Wait for page load \"profile\"",
     "testType": "UI Test",
-    "tags": [
-      "smoke"
-    ],
+    "tags": [],
     "additionalContext": "",
-    "baseUrl": "https://www.emiratesnbd.com/ar",
+    "baseUrl": "https://staging-shaheen.dev.g42a.ae/",
     "additionalInformation": "",
     "projectId": "default-project",
     "modelId": "default-model",
     "modelName": "Default Model",
-    "promptId": "1830dfe0-e6fc-4116-8a29-c0dece70f7b1",
+    "promptId": "ccec4d5a-f4c6-4f20-bf98-c413d453f56a",
     "status": "draft",
     "generatedTests": [],
     "metadata": {
       "parsedSteps": [
         {
           "stepNumber": 1,
-          "originalText": "Verify Localization and provide user missing  fields of Localization",
-          "action": "assert",
+          "originalText": "1.Navigate to given url",
+          "action": "navigate",
+          "target": "1.Navigate given url",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 2,
+          "originalText": "2.Type username piyush.safaya into Username placeholder field",
+          "action": "fill",
           "target": "input",
           "value": null,
-          "assertion": "Localization and provide user missing  fields of Localization",
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 3,
+          "originalText": "3.Type password piyush1234 into Password placeholder field",
+          "action": "fill",
+          "target": "input",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 4,
+          "originalText": "4.Click on Log in button",
+          "action": "click",
+          "target": "button",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 5,
+          "originalText": "5. Wait for page load case list item",
+          "action": "wait",
+          "target": "dropdown",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 6,
+          "originalText": "6. Click on first pop from case list item",
+          "action": "click",
+          "target": "dropdown",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 7,
+          "originalText": "7.  Wait for page load",
+          "action": "wait",
+          "target": "Wait for page load",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 8,
+          "originalText": "8. Click on hyperlink Profile from left side",
+          "action": "click",
+          "target": "link",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 9,
+          "originalText": "9. Wait for page load \"profile\"",
+          "action": "wait",
+          "target": "profile",
+          "value": null,
+          "assertion": null,
           "waitTime": null
         }
       ],
-      "timestamp": "2025-10-09T05:03:59.476Z"
+      "timestamp": "2025-11-04T06:12:21.235Z"
     },
-    "createdAt": "2025-10-09T05:03:59.477Z",
-    "updatedAt": "2025-10-09T05:03:59.477Z"
+    "createdAt": "2025-11-04T05:23:15.396Z",
+    "updatedAt": "2025-11-04T07:18:18.608Z"
   }
 ]

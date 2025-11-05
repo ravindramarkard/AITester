@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { FiZap, FiCode, FiPlay, FiDownload, FiCopy, FiToggleLeft, FiToggleRight, FiSettings, FiCpu } from 'react-icons/fi';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -352,6 +353,7 @@ const StepItem = styled.div`
 `;
 
 const EnhancedAIGenerator = () => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     testName: '',
     testType: 'UI Test',
@@ -627,9 +629,9 @@ const EnhancedAIGenerator = () => {
           <TitleIcon>
             <FiZap />
           </TitleIcon>
-          Enhanced AI Generator
+          {t('enhancedAI.title')}
         </Title>
-        <Subtitle>Advanced AI-powered test generation with intelligent features</Subtitle>
+        <Subtitle>{t('enhancedAI.subtitle')}</Subtitle>
       </Header>
 
       <MainContent>

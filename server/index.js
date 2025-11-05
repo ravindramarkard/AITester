@@ -345,14 +345,18 @@ app.delete('/api/test-files/:id', (req, res) => {
           promptDir = path.join(__dirname, '../tests/projects', project, model, modelName, 'LLM-Generated', 'prompts', promptId);
           
           // Check if prompt directory exists and contains only this test file
-          if (fs.existsSync(promptDir)) {
-            const filesInPromptDir = fs.readdirSync(promptDir);
-            const specFiles = filesInPromptDir.filter(file => file.endsWith('.spec.ts'));
-            
-            // If this is the only spec file in the prompt directory, mark for deletion
-            if (specFiles.length === 1 && specFiles[0] === path.basename(testFile)) {
-              shouldDeletePromptDir = true;
-              console.log(`Will delete prompt directory after file deletion: ${promptDir}`);
+          if (fs.existsSync(promptDir) && fs.statSync(promptDir).isDirectory()) {
+            try {
+              const filesInPromptDir = fs.readdirSync(promptDir);
+              const specFiles = filesInPromptDir.filter(file => file.endsWith('.spec.ts'));
+              
+              // If this is the only spec file in the prompt directory, mark for deletion
+              if (specFiles.length === 1 && specFiles[0] === path.basename(testFile)) {
+                shouldDeletePromptDir = true;
+                console.log(`Will delete prompt directory after file deletion: ${promptDir}`);
+              }
+            } catch (error) {
+              console.log(`Error reading prompt directory ${promptDir}:`, error.message);
             }
           }
         }

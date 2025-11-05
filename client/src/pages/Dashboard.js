@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { FiBarChart2, FiPlay, FiCheckCircle, FiXCircle, FiClock, FiEdit3, FiSettings, FiCpu, FiMonitor } from 'react-icons/fi';
 import api from '../config/axios';
 
@@ -8,6 +9,11 @@ const DashboardContainer = styled.div`
   padding: 30px;
   background-color: #f8f9fa;
   min-height: 100vh;
+
+  [dir="rtl"] & {
+    text-align: right;
+    direction: rtl;
+  }
 `;
 
 const Header = styled.div`
@@ -42,6 +48,12 @@ const StatCard = styled.div`
   border-left: 4px solid ${props => props.color || '#3498db'};
   cursor: pointer;
   transition: all 0.3s ease;
+  
+  [dir="rtl"] & {
+    border-left: none;
+    border-right: 4px solid ${props => props.color || '#3498db'};
+    text-align: right;
+  }
   
   &:hover {
     transform: translateY(-2px);
@@ -110,12 +122,24 @@ const ActivityItem = styled.div`
   background-color: #f8f9fa;
   border-radius: 6px;
   border-left: 3px solid ${props => props.color || '#3498db'};
+  
+  [dir="rtl"] & {
+    flex-direction: row-reverse;
+    border-left: none;
+    border-right: 3px solid ${props => props.color || '#3498db'};
+    text-align: right;
+  }
 `;
 
 const ActivityIcon = styled.div`
   color: ${props => props.color || '#3498db'};
   margin-right: 12px;
   font-size: 18px;
+  
+  [dir="rtl"] & {
+    margin-right: 0;
+    margin-left: 12px;
+  }
 `;
 
 const ActivityContent = styled.div`
@@ -135,6 +159,7 @@ const ActivityTime = styled.div`
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [stats, setStats] = useState({
     totalPrompts: 0,
     totalTests: 0,
@@ -301,13 +326,13 @@ const Dashboard = () => {
   };
 
   return (
-    <DashboardContainer>
+    <DashboardContainer className="page-content">
       <Header>
-        <Title>Dashboard</Title>
-        <Subtitle>Welcome to AI TestGen - Your automated testing solution</Subtitle>
+        <Title>{t('dashboard.title')}</Title>
+        <Subtitle>{t('dashboard.welcome')}</Subtitle>
       </Header>
 
-      <StatsGrid>
+      <StatsGrid className="dashboard-cards">
         <StatCard color="#3498db" onClick={() => handleCardClick('/prompts')}>
           <StatHeader>
             <StatTitle>Total Prompts</StatTitle>
@@ -399,9 +424,9 @@ const Dashboard = () => {
 
       <RecentActivity>
         <SectionTitle>Recent Activity</SectionTitle>
-        <ActivityList>
+        <ActivityList className="activity-list">
           {recentActivity.map((activity) => (
-            <ActivityItem key={activity.id} color={activity.color}>
+            <ActivityItem key={activity.id} color={activity.color} className="activity-item">
               <ActivityIcon color={activity.color}>
                 {getActivityIcon(activity.type)}
               </ActivityIcon>

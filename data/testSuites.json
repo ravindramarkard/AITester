@@ -1,78 +1,99 @@
 [
   {
-    "id": "suite-1759963550930-cpiyeo0fu",
-    "name": "all test cases",
-    "description": "test",
+    "id": "suite-1760959054714-bix5fdl4c",
+    "name": "ss",
+    "description": "",
     "testType": "UI",
     "testCases": [
       {
-        "id": "ui-submit-the-form",
-        "name": "submit the form",
-        "tags": [
-          "ui"
-        ],
-        "type": "UI",
-        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/60b5cc18-f815-4a6e-986a-52726c23e079/submit-the-form.spec.ts",
-        "created": "2025-10-08T22:04:36.412Z",
-        "modified": "2025-10-08T22:04:36.413Z",
-        "isReference": true
-      },
-      {
-        "id": "ui-test-invalid-login",
-        "name": "test invalid login",
+        "id": "ui-1760958794995-test-invalid-login",
+        "name": "1760958794995 test invalid login",
         "tags": [
           "ui",
           "login"
         ],
         "type": "UI",
-        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/713be9ee-2817-4052-8765-44bcbe0f5b7c/test-invalid-login.spec.ts",
-        "created": "2025-10-08T22:56:04.363Z",
-        "modified": "2025-10-08T22:56:04.364Z"
+        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/1760958794995-test-invalid-login.spec.ts",
+        "created": "2025-10-20T11:13:14.997Z",
+        "modified": "2025-10-20T11:13:14.997Z",
+        "isReference": true
       }
     ],
-    "createdAt": "2025-10-08T22:45:50.930Z",
+    "createdAt": "2025-10-20T11:17:34.714Z",
     "status": "ready",
-    "totalTests": 2,
+    "totalTests": 1,
     "lastRun": null,
     "results": {
       "passed": 0,
       "failed": 0,
       "skipped": 0,
-      "total": 3
-    },
-    "selectedTestCases": [
+      "total": 1
+    }
+  },
+  {
+    "id": "suite-1762241302695-rb9ouq99q",
+    "name": "res",
+    "description": "",
+    "testType": "UI",
+    "testCases": [
       {
-        "id": "ui-submit-the-form",
-        "name": "submit the form",
+        "id": "ui-1762241041114-test-case-:-create-a-case-without-collaborators-assigned-",
+        "name": "1762241041114 test case : create a case without collaborators assigned ",
         "tags": [
           "ui"
         ],
         "type": "UI",
-        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/60b5cc18-f815-4a6e-986a-52726c23e079/submit-the-form.spec.ts",
-        "created": "2025-10-08T22:04:36.412Z",
-        "modified": "2025-10-08T22:04:36.413Z",
+        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/1762241041114-test-case-:-create-a-case-without-collaborators-assigned-.spec.ts",
+        "created": "2025-11-04T07:24:01.115Z",
+        "modified": "2025-11-04T07:24:01.116Z",
         "isReference": true
       },
       {
-        "id": "ui-test-invalid-login",
-        "name": "test invalid login",
+        "id": "ui-1762239024639-test-case-:-create-a-case-without-collaborators-assigned-",
+        "name": "1762239024639 test case : create a case without collaborators assigned ",
         "tags": [
-          "ui",
-          "login"
+          "ui"
         ],
         "type": "UI",
-        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/713be9ee-2817-4052-8765-44bcbe0f5b7c/test-invalid-login.spec.ts",
-        "created": "2025-10-08T22:56:04.363Z",
-        "modified": "2025-10-08T22:56:04.364Z"
+        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/1762239024639-test-case-:-create-a-case-without-collaborators-assigned-.spec.ts",
+        "created": "2025-11-04T06:50:24.640Z",
+        "modified": "2025-11-04T06:50:24.640Z",
+        "isReference": true
+      },
+      {
+        "id": "ui-go-to-profile",
+        "name": "go to profile",
+        "tags": [
+          "ui"
+        ],
+        "type": "UI",
+        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/7ff89683-b29b-4d3e-b07c-9e40c50c4e25/go-to-profile.spec.ts",
+        "created": "2025-11-04T05:56:23.740Z",
+        "modified": "2025-11-04T06:03:26.423Z",
+        "isReference": true
+      },
+      {
+        "id": "ui-go-to-profile1",
+        "name": "go to profile1",
+        "tags": [
+          "ui"
+        ],
+        "type": "UI",
+        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/09336c15-820c-41b4-91ae-e04444fc5b60/go-to-profile1.spec.ts",
+        "created": "2025-11-04T06:12:57.061Z",
+        "modified": "2025-11-04T06:12:57.061Z",
+        "isReference": true
       }
     ],
-    "updatedAt": "2025-10-08T22:57:58.366Z",
-    "schedule": {
-      "cron": "*/2 * * * *",
-      "enabled": true,
-      "environmentId": "62f5c730-ad8c-4982-a6be-153743a950bd",
-      "headless": false,
-      "workers": 2
+    "createdAt": "2025-11-04T07:28:22.695Z",
+    "status": "ready",
+    "totalTests": 4,
+    "lastRun": null,
+    "results": {
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "total": 4
     }
   }
 ]

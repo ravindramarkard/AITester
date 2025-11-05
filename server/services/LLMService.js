@@ -94,7 +94,7 @@ class LLMService {
 
     // Analyze DOM structure before generating code (skip for API tests)
     let domAnalysis = null;
-    const isAPITest = testType === 'api' || testType === 'e2e-api' || options.testType === 'api' || options.testType === 'e2e-api';
+    const isAPITest = testType === 'api' || testType === 'e2e-api' || testType === 'individual-api' || options.testType === 'api' || options.testType === 'e2e-api' || options.testType === 'individual-api';
     
     if (!isAPITest) {
       try {
@@ -196,7 +196,7 @@ class LLMService {
     const browser = envVars.BROWSER || 'chromium';
     const headless = envVars.HEADLESS !== false;
     
-    const isAPITest = testType === 'api' || testType === 'e2e-api';
+    const isAPITest = testType === 'api' || testType === 'e2e-api' || testType === 'individual-api';
     
     if (isAPITest) {
       return `You are an expert Playwright API test automation engineer. Generate high-quality, production-ready Playwright API test code based on user requirements.
@@ -348,7 +348,7 @@ Return ONLY the complete TypeScript test file code, no explanations or markdown 
   }
 
   createUserPrompt(prompt, testName, testType, domAnalysis) {
-    const isAPITest = testType === 'api' || testType === 'e2e-api';
+    const isAPITest = testType === 'api' || testType === 'e2e-api' || testType === 'individual-api';
     
     if (isAPITest) {
       return `Generate a Playwright API test for: "${prompt}"
@@ -369,13 +369,27 @@ API TEST GUIDELINES:
 - Use page.request or APIRequestContext for all API calls
 - Include proper HTTP method selection (GET, POST, PUT, DELETE)
 - Add comprehensive response validation (status, headers, body)
-- Include authentication handling if required
+- Include robust authentication handling with token resolution:
+  * Check multiple token sources: API_TOKEN, BEARER_TOKEN, ACCESS_TOKEN
+  * Implement OAuth2 token fetching as fallback
+  * Use environment variables for configuration
 - Add test data factories for consistent data generation
 - Implement proper cleanup procedures
 - Add response time assertions
 - Include schema validation where appropriate
 - Use proper error handling with try-catch blocks
 - Add Allure reporting with proper tags and attachments
+
+CRITICAL TOKEN RESOLUTION REQUIREMENTS:
+- Always implement robust token resolution in beforeAll hook
+- Check process.env.API_TOKEN, process.env.BEARER_TOKEN, process.env.ACCESS_TOKEN
+- If no static token, attempt OAuth2 token fetching using:
+  * TOKEN_URL or AUTH_URL
+  * CLIENT_ID and CLIENT_SECRET
+  * USERNAME and PASSWORD
+  * SCOPE (default: 'openid')
+- Use resolved token in Authorization header: 'Bearer \${process.env.API_TOKEN || process.env.BEARER_TOKEN || process.env.ACCESS_TOKEN}'
+- Include comprehensive error handling for token resolution failures
 
 Generate the complete API test file code.`;
     }

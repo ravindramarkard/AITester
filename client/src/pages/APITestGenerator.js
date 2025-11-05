@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import styled, { keyframes, css } from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { FiCloud, FiSettings, FiUpload, FiPlay, FiDownload, FiCheck, FiX, FiRefreshCw, FiChevronDown, FiChevronUp, FiSearch } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import api from '../config/axios';
@@ -787,6 +788,7 @@ const AuthTypeBadge = styled.span`
 `;
 
 const APITestGenerator = () => {
+  const { t } = useTranslation();
   const [loadingMethod, setLoadingMethod] = useState('api');
   const [apiUrl, setApiUrl] = useState('');
   const [swaggerUrl, setSwaggerUrl] = useState('');
@@ -1243,9 +1245,9 @@ const APITestGenerator = () => {
           <TitleIcon>
             <FiCloud />
           </TitleIcon>
-          API Test Generator
+          {t('apiTestGenerator.title')}
         </Title>
-        <Subtitle>Generate robust automated test cases from your API endpoints</Subtitle>
+        <Subtitle>{t('apiTestGenerator.subtitle')}</Subtitle>
       </Header>
 
       {error && (

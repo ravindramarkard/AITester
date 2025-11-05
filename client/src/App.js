@@ -4,6 +4,12 @@ import styled from 'styled-components';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+// Initialize i18n
+import './i18n';
+
+// Import RTL styles
+import './styles/rtl.css';
+
 // Components
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
@@ -27,6 +33,12 @@ const MainContent = styled.div`
   padding: 0;
   background-color: #ffffff;
   min-height: 100vh;
+  transition: margin 0.3s ease;
+
+  [dir="rtl"] & {
+    margin-left: 0;
+    margin-right: 250px;
+  }
 `;
 
 function App() {

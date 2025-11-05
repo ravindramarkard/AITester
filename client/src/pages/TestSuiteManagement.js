@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { 
   FiPlay, 
   FiBarChart2, 
@@ -20,6 +21,7 @@ import { toast } from 'react-toastify';
 import api from '../config/axios';
 import RunTestModal from '../components/RunTestModal';
 import RunTestSuiteModal from '../components/RunTestSuiteModal';
+import RunApiTestModal from '../components/RunApiTestModal';
 import SpecDetailsModal from '../components/SpecDetailsModal';
 import CreateTestSuiteModal from '../components/CreateTestSuiteModal';
 import EditTestSuiteModal from '../components/EditTestSuiteModal';
@@ -889,6 +891,7 @@ const TestSuitesViewButton = styled(TestSuitesActionButton)`
 
 const TestSuiteManagement = () => {
   const location = useLocation();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('overview');
   const [activeFilter, setActiveFilter] = useState('ui');
   
@@ -904,6 +907,7 @@ const TestSuiteManagement = () => {
   const [loading, setLoading] = useState(true);
   const [selectedTests, setSelectedTests] = useState([]);
   const [showRunTestModal, setShowRunTestModal] = useState(false);
+  const [showRunApiTestModal, setShowRunApiTestModal] = useState(false);
   const [selectedTest, setSelectedTest] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteAction, setDeleteAction] = useState(null);
@@ -1186,72 +1190,8 @@ const TestSuiteManagement = () => {
   };
 
   const handleRunApiTest = async (test) => {
-    try {
-      setLoading(true);
-      
-      // Get the test file path
-      const testFilePath = test.filePath || test.path;
-      
-      if (!testFilePath) {
-        toast.error('Test file path not found');
-        return;
-      }
-
-      console.log(`🚀 Running API test: ${test.name}`);
-      console.log(`📁 Test file: ${testFilePath}`);
-
-      // Get the default environment configuration for API tests
-      const environmentConfig = {
-        _id: "99924982-205a-40be-8607-f932506cd3d5",
-        name: "Test",
-        key: "llm-test",
-        description: "Environment for testing LLM code generation",
-        variables: {
-          BASE_URL: "https://staging-shaheen.dev.g42a.ae",
-          API_URL: "https://p-tray.dev.g42a.ae",
-          USERNAME: "piyush.safaya",
-          PASSWORD: "piyush1234",
-          TIMEOUT: 299998,
-          BROWSER: "chromium",
-          HEADLESS: false,
-          RETRIES: 1
-        },
-        authorization: {
-          enabled: true,
-          type: "oauth2",
-          clientId: "shaheen",
-          clientSecret: "4f93f37f-0d79-4533-8519-7dd42492c647",
-          tokenUrl: "https://keycloak.dev.g42a.ae/auth/realms/g42a/protocol/openid-connect/token",
-          scope: "openid",
-          grantType: "password",
-          username: "piyush.safaya",
-          password: "piyush1234"
-        }
-      };
-
-      // Execute API test with environment configuration
-      const response = await api.post('/test-execution/run-api', {
-        testFile: testFilePath,
-        environment: 'test',
-        environmentConfig: environmentConfig,
-        timeout: 30000,
-        retries: 1
-      });
-
-      if (response.data.success) {
-        toast.success('API test executed successfully!');
-        console.log('API test execution result:', response.data);
-      } else {
-        toast.error(`API test execution failed: ${response.data.message}`);
-        console.error('API test execution error:', response.data);
-      }
-
-    } catch (error) {
-      console.error('Error running API test:', error);
-      toast.error(`Failed to run API test: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
+    setSelectedTest(test);
+    setShowRunApiTestModal(true);
   };
 
   const handleTestRunComplete = (result) => {
@@ -1942,7 +1882,7 @@ const TestSuiteManagement = () => {
             <TitleIcon>
               <FiBarChart2 />
             </TitleIcon>
-            Test Suite Management
+            {t('testSuites.title')}
           </Title>
           <StatusIndicator>
             <StatusDot />
@@ -2283,7 +2223,7 @@ const TestSuiteManagement = () => {
                 <QuickActionsGrid>
                   <QuickActionButton color="#3498db" onClick={handleCreateTestSuite}>
                     <FiBarChart2 />
-                    + CREATE TEST SUITE
+                    + {t('testSuites.createNew')}
                   </QuickActionButton>
                   <QuickActionButton color="#e74c3c">
                     <FiBarChart2 />
@@ -2307,7 +2247,7 @@ const TestSuiteManagement = () => {
                 </TestSuitesTitle>
                 <CreateButton onClick={handleCreateTestSuite}>
                   <FiBarChart2 />
-                  + CREATE TEST SUITE
+                  + {t('testSuites.createNew')}
                 </CreateButton>
                 {deletedTestIds.size > 0 && (
                   <CreateButton 
@@ -2341,7 +2281,7 @@ const TestSuiteManagement = () => {
                     <TestSuitesTableRow>
                       <TestSuitesTableCell colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>
                         <div style={{ color: '#7f8c8d', fontSize: '16px' }}>
-                          No test suites found. Create your first test suite to get started.
+                          {t('testSuites.noTestSuites')}. {t('testSuites.createFirst')}.
             </div>
                       </TestSuitesTableCell>
                     </TestSuitesTableRow>
@@ -2474,6 +2414,13 @@ const TestSuiteManagement = () => {
       <RunTestModal
         isOpen={showRunTestModal}
         onClose={() => setShowRunTestModal(false)}
+        test={selectedTest}
+        onTestRun={handleTestRunComplete}
+      />
+
+      <RunApiTestModal
+        isOpen={showRunApiTestModal}
+        onClose={() => setShowRunApiTestModal(false)}
         test={selectedTest}
         onTestRun={handleTestRunComplete}
       />

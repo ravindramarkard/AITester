@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RTL Spacing & Mirror View Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .test-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .page-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+        }
+        
+        .page-title-icon {
+            margin-right: 12px;
+            color: #3498db;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn-group {
+            display: flex;
+            background: #ecf0f1;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .btn-group .btn {
+            border-radius: 0;
+            border-right: 1px solid #bdc3c7;
+        }
+        
+        .btn-group .btn:last-child {
+            border-right: none;
+        }
+        
+        .search-container {
+            position: relative;
+        }
+        
+        .search-input {
+            padding: 8px 12px;
+            border: 1px solid #bdc3c7;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 200px;
+        }
+        
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .content-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .card {
+            background: white;
+            border: 1px solid #ecf0f1;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .card-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .card-body {
+            margin-bottom: 16px;
+        }
+        
+        .card-description {
+            color: #7f8c8d;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .card-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: #95a5a6;
+            margin-bottom: 16px;
+        }
+        
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 16px;
+            border-top: 1px solid #ecf0f1;
+        }
+        
+        .tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        
+        .tag {
+            background: #e8f4f8;
+            color: #2980b9;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            background: white;
+            border: 1px solid #ecf0f1;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .list-item-content {
+            flex: 1;
+        }
+        
+        .list-item-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 4px;
+        }
+        
+        .list-item-description {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .list-item-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: #95a5a6;
+        }
+        
+        .list-item-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .language-switcher {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        .language-button {
+            padding: 8px 12px;
+            background: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .current-direction {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: #e74c3c;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            z-index: 1000;
+        }
+        
+        /* RTL Styles */
+        [dir="rtl"] .page-header {
+            flex-direction: row-reverse;
+            text-align: right;
+        }
+        
+        [dir="rtl"] .page-title-icon {
+            margin-right: 0;
+            margin-left: 12px;
+        }
+        
+        [dir="rtl"] .header-actions {
+            flex-direction: row-reverse;
+        }
+        
+        [dir="rtl"] .btn-group {
+            flex-direction: row-reverse;
+        }
+        
+        [dir="rtl"] .btn-group .btn {
+            border-right: none;
+            border-left: 1px solid #bdc3c7;
+        }
+        
+        [dir="rtl"] .btn-group .btn:last-child {
+            border-left: none;
+        }
+        
+        [dir="rtl"] .search-input {
+            text-align: right;
+            direction: rtl;
+        }
+        
+        [dir="rtl"] .card-header {
+            flex-direction: row-reverse;
+        }
+        
+        [dir="rtl"] .card {
+            text-align: right;
+        }
+        
+        [dir="rtl"] .card-footer {
+            flex-direction: row-reverse;
+        }
+        
+        [dir="rtl"] .list-item {
+            flex-direction: row-reverse;
+        }
+        
+        [dir="rtl"] .list-item-content {
+            text-align: right;
+        }
+        
+        [dir="rtl"] .list-item-actions {
+            flex-direction: row-reverse;
+        }
+        
+        .view-toggle {
+            display: flex;
+            background: #ecf0f1;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .view-toggle button {
+            padding: 8px 12px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .view-toggle button.active {
+            background: #3498db;
+            color: white;
+        }
+        
+        .spacing-demo {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .spacing-demo h3 {
+            margin-bottom: 16px;
+            color: #2c3e50;
+        }
+        
+        .spacing-examples {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .spacing-example {
+            background: white;
+            padding: 16px;
+            border: 1px solid #ecf0f1;
+            border-radius: 6px;
+            min-width: 200px;
+        }
+        
+        .spacing-example h4 {
+            margin: 0 0 8px 0;
+            color: #2c3e50;
+        }
+        
+        .spacing-example p {
+            margin: 0;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="current-direction" id="currentDir">LTR</div>
+    
+    <div class="language-switcher">
+        <button class="language-button" onclick="switchLanguage()">
+            <span id="currentLang">English</span> 🌐
+        </button>
+    </div>
+    
+    <div class="test-container">
+        <div class="page-header">
+            <div class="page-title">
+                <span class="page-title-icon">📝</span>
+                <span id="pageTitle">Prompts Management</span>
+            </div>
+            <div class="header-actions">
+                <div class="view-toggle">
+                    <button onclick="setView('grid')" id="gridBtn" class="active">Grid</button>
+                    <button onclick="setView('list')" id="listBtn">List</button>
+                </div>
+                <div class="search-container">
+                    <input type="text" class="search-input" placeholder="Search prompts..." id="searchInput">
+                </div>
+                <button class="btn btn-primary" onclick="createNew()">
+                    <span id="createBtn">Create New</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="spacing-demo">
+            <h3>RTL Spacing & Mirror View Demo</h3>
+            <div class="spacing-examples">
+                <div class="spacing-example">
+                    <h4>Header Actions</h4>
+                    <p>Buttons and search are mirrored in RTL mode</p>
+                </div>
+                <div class="spacing-example">
+                    <h4>Card Layout</h4>
+                    <p>Card headers and footers are reversed</p>
+                </div>
+                <div class="spacing-example">
+                    <h4>List Items</h4>
+                    <p>Content and actions are mirrored</p>
+                </div>
+                <div class="spacing-example">
+                    <h4>Form Controls</h4>
+                    <p>Input direction and alignment change</p>
+                </div>
+            </div>
+        </div>
+        
+        <div id="content">
+            <!-- Grid View -->
+            <div class="content-grid" id="gridView">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Login Test</div>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary">Edit</button>
+                            <button class="btn btn-secondary">Delete</button>
+                            <button class="btn btn-primary">Run</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-description">Test user login functionality with valid credentials</div>
+                        <div class="card-meta">
+                            <span>Type: UI Test</span>
+                            <span>Status: Active</span>
+                            <span>Created: 2024-01-15</span>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="tags">
+                            <span class="tag">smoke</span>
+                            <span class="tag">login</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">API Test</div>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary">Edit</button>
+                            <button class="btn btn-secondary">Delete</button>
+                            <button class="btn btn-primary">Run</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-description">Test API endpoint with authentication</div>
+                        <div class="card-meta">
+                            <span>Type: API Test</span>
+                            <span>Status: Active</span>
+                            <span>Created: 2024-01-14</span>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="tags">
+                            <span class="tag">api</span>
+                            <span class="tag">auth</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Form Validation</div>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary">Edit</button>
+                            <button class="btn btn-secondary">Delete</button>
+                            <button class="btn btn-primary">Run</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-description">Validate form inputs and error messages</div>
+                        <div class="card-meta">
+                            <span>Type: UI Test</span>
+                            <span>Status: Draft</span>
+                            <span>Created: 2024-01-13</span>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="tags">
+                            <span class="tag">validation</span>
+                            <span class="tag">forms</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- List View -->
+            <div class="content-list" id="listView" style="display: none;">
+                <div class="list-item">
+                    <div class="list-item-content">
+                        <div class="list-item-title">Login Test</div>
+                        <div class="list-item-description">Test user login functionality with valid credentials</div>
+                        <div class="list-item-meta">
+                            <span>Type: UI Test</span>
+                            <span>Status: Active</span>
+                            <span>Created: 2024-01-15</span>
+                        </div>
+                    </div>
+                    <div class="list-item-actions">
+                        <button class="btn btn-secondary">Edit</button>
+                        <button class="btn btn-secondary">Delete</button>
+                        <button class="btn btn-primary">Run</button>
+                    </div>
+                </div>
+                
+                <div class="list-item">
+                    <div class="list-item-content">
+                        <div class="list-item-title">API Test</div>
+                        <div class="list-item-description">Test API endpoint with authentication</div>
+                        <div class="list-item-meta">
+                            <span>Type: API Test</span>
+                            <span>Status: Active</span>
+                            <span>Created: 2024-01-14</span>
+                        </div>
+                    </div>
+                    <div class="list-item-actions">
+                        <button class="btn btn-secondary">Edit</button>
+                        <button class="btn btn-secondary">Delete</button>
+                        <button class="btn btn-primary">Run</button>
+                    </div>
+                </div>
+                
+                <div class="list-item">
+                    <div class="list-item-content">
+                        <div class="list-item-title">Form Validation</div>
+                        <div class="list-item-description">Validate form inputs and error messages</div>
+                        <div class="list-item-meta">
+                            <span>Type: UI Test</span>
+                            <span>Status: Draft</span>
+                            <span>Created: 2024-01-13</span>
+                        </div>
+                    </div>
+                    <div class="list-item-actions">
+                        <button class="btn btn-secondary">Edit</button>
+                        <button class="btn btn-secondary">Delete</button>
+                        <button class="btn btn-primary">Run</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isRTL = false;
+        
+        function switchLanguage() {
+            const currentDir = document.getElementById('currentDir');
+            const currentLang = document.getElementById('currentLang');
+            const pageTitle = document.getElementById('pageTitle');
+            const createBtn = document.getElementById('createBtn');
+            const searchInput = document.getElementById('searchInput');
+            
+            if (isRTL) {
+                // Switch to LTR
+                document.documentElement.dir = 'ltr';
+                document.documentElement.lang = 'en';
+                currentDir.textContent = 'LTR';
+                currentLang.textContent = 'English';
+                pageTitle.textContent = 'Prompts Management';
+                createBtn.textContent = 'Create New';
+                searchInput.placeholder = 'Search prompts...';
+                isRTL = false;
+            } else {
+                // Switch to RTL
+                document.documentElement.dir = 'rtl';
+                document.documentElement.lang = 'ar';
+                currentDir.textContent = 'RTL';
+                currentLang.textContent = 'العربية';
+                pageTitle.textContent = 'إدارة المطالبات';
+                createBtn.textContent = 'إنشاء جديد';
+                searchInput.placeholder = 'بحث المطالبات...';
+                isRTL = true;
+            }
+        }
+        
+        function setView(view) {
+            const gridView = document.getElementById('gridView');
+            const listView = document.getElementById('listView');
+            const gridBtn = document.getElementById('gridBtn');
+            const listBtn = document.getElementById('listBtn');
+            
+            if (view === 'grid') {
+                gridView.style.display = 'grid';
+                listView.style.display = 'none';
+                gridBtn.classList.add('active');
+                listBtn.classList.remove('active');
+            } else {
+                gridView.style.display = 'none';
+                listView.style.display = 'flex';
+                gridBtn.classList.remove('active');
+                listBtn.classList.add('active');
+            }
+        }
+        
+        function createNew() {
+            alert(isRTL ? 'إنشاء مطالبة جديدة' : 'Create new prompt');
+        }
+    </script>
+</body>
+</html>

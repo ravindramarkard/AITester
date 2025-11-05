@@ -173,27 +173,30 @@ router.post('/generate', async (req, res) => {
     if (testType === 'individual') {
       // Generate individual test files for each endpoint
       for (const endpoint of endpoints) {
+        const endpointPath = endpoint.path || endpoint.url || '/unknown';
+        
         if (useLLM) {
-          // Generate LLM-powered tests with requested variations only
+          // Generate LLM-powered individual test with all selected variations in one file
           const requestedVariations = testVariations && testVariations.length > 0 ? 
             testVariations : 
-            (environment?.variables?.TEST_VARIATIONS || ['happy-path']);
+            ['happy-path'];
           
-          for (const variation of requestedVariations) {
-            const endpointPath = endpoint.path || endpoint.url || '/unknown';
-            const fileName = `${endpoint.method.toLowerCase()}-${endpointPath.replace(/[^a-zA-Z0-9]/g, '-')}-${variation}.spec.ts`;
-            const code = await generateLLMAPITest(endpoint, req.body.environment || environment, variation);
-            
-            // Save the test file
-            const filePath = await saveTestFile(fileName, code, 'api-tests');
-            filesCreated++;
-            
-            if (testCode) testCode += '\n\n';
-            testCode += code;
-          }
+          // Generate single test file with multiple test cases (one for each variation)
+          const primaryVariation = requestedVariations[0] || 'happy-path';
+          const fileName = requestedVariations.length > 1 
+            ? `${endpoint.method.toLowerCase()}-${endpointPath.replace(/[^a-zA-Z0-9]/g, '-')}-multiple-variations.spec.ts`
+            : `${endpoint.method.toLowerCase()}-${endpointPath.replace(/[^a-zA-Z0-9]/g, '-')}-${primaryVariation}.spec.ts`;
+          
+          const code = await generateLLMIndividualAPITest(endpoint, environment, components, primaryVariation, requestedVariations);
+          
+          // Save the test file
+          const filePath = await saveTestFile(fileName, code, 'api-tests');
+          filesCreated++;
+          
+          if (testCode) testCode += '\n\n';
+          testCode += code;
         } else {
-          // Generate standard test
-          const endpointPath = endpoint.path || endpoint.url || '/unknown';
+          // Generate standard individual test
           const fileName = `${endpoint.method.toLowerCase()}-${endpointPath.replace(/[^a-zA-Z0-9]/g, '-')}.spec.ts`;
           const code = await generateIndividualAPITest(endpoint, environment, components);
           
@@ -411,6 +414,39 @@ function buildSampleFromSchemaRequiredOnly(schema, components, depth = 0) {
   }
 }
 
+// Generate realistic sample data instead of placeholders
+function generateRealisticSampleData(sample) {
+  if (typeof sample === 'string') {
+    // Replace common placeholder strings with realistic data
+    if (sample === 'string') return 'Sample Data';
+    if (sample === 'user@example.com') return 'user@example.com';
+    if (sample.includes('00000000-0000-0000-0000-000000000000')) return sample;
+    return sample;
+  }
+  
+  if (typeof sample === 'number') {
+    return sample;
+  }
+  
+  if (typeof sample === 'boolean') {
+    return sample;
+  }
+  
+  if (Array.isArray(sample)) {
+    return sample.map(item => generateRealisticSampleData(item));
+  }
+  
+  if (typeof sample === 'object' && sample !== null) {
+    const realistic = {};
+    for (const [key, value] of Object.entries(sample)) {
+      realistic[key] = generateRealisticSampleData(value);
+    }
+    return realistic;
+  }
+  
+  return sample;
+}
+
 function buildSampleFromSchema(schema, depth = 0) {
   if (!schema || depth > 10) return null;
   if (schema.example !== undefined) return schema.example;
@@ -448,20 +484,66 @@ function buildSampleFromSchema(schema, depth = 0) {
   }
 }
 
-function getJsonRequestBodySchema(endpoint) {
+function getJsonRequestBodySchema(endpoint, components = null) {
   const rb = endpoint?.requestBody?.content;
   if (!rb || typeof rb !== 'object') return null;
   const jsonKeys = Object.keys(rb).filter(k => k.toLowerCase().includes('application/json'));
   for (const key of jsonKeys) {
     const sch = rb[key]?.schema;
-    if (sch) return sch;
+    if (sch) {
+      // Resolve $ref references using components
+      return resolveSchemaReferences(sch, components);
+    }
   }
   // fallback: first content entry with schema
   for (const key of Object.keys(rb)) {
     const sch = rb[key]?.schema;
-    if (sch) return sch;
+    if (sch) {
+      return resolveSchemaReferences(sch, components);
+    }
   }
   return null;
+}
+
+// Helper function to resolve $ref references in schema
+function resolveSchemaReferences(schema, components = null) {
+  if (!schema || typeof schema !== 'object') return schema;
+  
+  // If schema has $ref, resolve it
+  if (schema.$ref && components) {
+    const refPath = schema.$ref.replace('#/components/schemas/', '');
+    const resolved = components?.schemas?.[refPath];
+    if (resolved) {
+      // Merge resolved schema with any additional properties from the ref
+      const resolvedSchema = { ...resolved, ...schema };
+      delete resolvedSchema.$ref;
+      // Recursively resolve any nested $ref
+      return resolveSchemaReferences(resolvedSchema, components);
+    }
+  }
+  
+  // Recursively resolve nested objects and arrays
+  if (schema.properties) {
+    const resolvedProps = {};
+    for (const [key, value] of Object.entries(schema.properties)) {
+      resolvedProps[key] = resolveSchemaReferences(value, components);
+    }
+    return { ...schema, properties: resolvedProps };
+  }
+  
+  if (schema.items) {
+    return { ...schema, items: resolveSchemaReferences(schema.items, components) };
+  }
+  
+  if (schema.allOf || schema.oneOf || schema.anyOf) {
+    const key = schema.allOf ? 'allOf' : (schema.oneOf ? 'oneOf' : 'anyOf');
+    return {
+      ...schema,
+      [key]: schema[key].map(s => resolveSchemaReferences(s, components))
+    };
+  }
+  
+  return schema;
 }
 
 // Helper function to generate individual API test
@@ -485,7 +567,14 @@ async function generateIndividualAPITest(endpoint, environment, components) {
   const rawSchema = getJsonRequestBodySchema(endpoint);
   const hasBody = ['POST', 'PUT', 'PATCH'].includes((endpoint.method || '').toUpperCase());
   const minimalSample = hasBody && rawSchema ? buildSampleFromSchemaRequiredOnly(rawSchema, components) : null;
-  const sampleLiteral = minimalSample !== null ? JSON.stringify(minimalSample, null, 2) : null;
+  
+  // Generate realistic sample data instead of placeholders
+  let sampleLiteral = null;
+  if (minimalSample) {
+    // Replace placeholder values with realistic data
+    const realisticSample = generateRealisticSampleData(minimalSample);
+    sampleLiteral = JSON.stringify(realisticSample, null, 2);
+  }
   
   // Build extraHTTPHeaders dynamically with env var for auth token
   const extraHeadersStr = hasAuthToken 
@@ -1073,6 +1162,25 @@ async function buildAuthorizationHeaders(environment) {
           break;
         }
 
+        // Implicit grant is browser-based; for API tests we expect a token to be provided
+        if (grantType === 'implicit') {
+          const implicitToken = resolveEnvironmentVariables(
+            auth.token ||
+            environment?.variables?.API_TOKEN ||
+            environment?.variables?.ACCESS_TOKEN ||
+            environment?.variables?.BEARER_TOKEN ||
+            '',
+            environment
+          );
+          if (implicitToken && implicitToken.trim() !== '') {
+            headers['Authorization'] = `Bearer ${implicitToken.trim()}`;
+            console.log('Using provided token for OAuth2 implicit grant');
+          } else {
+            console.warn('OAuth2 implicit grant selected, but no token provided. Set authorization.token or API_TOKEN/ACCESS_TOKEN/BEARER_TOKEN in environment variables.');
+          }
+          break;
+        }
+
         const form = new URLSearchParams();
         form.append('client_id', clientId);
         form.append('grant_type', grantType);
@@ -1162,6 +1270,42 @@ async function generateLLMAPITest(endpoint, environment, variation = 'happy-path
   }
 }
 
+async function generateLLMIndividualAPITest(endpoint, environment, components, variation = 'happy-path', allVariations = null) {
+  // Check if LLM configuration is available
+  if (!environment?.llmConfiguration?.baseUrl || !environment?.llmConfiguration?.model) {
+    console.log('LLM configuration not available, falling back to template generation...');
+    return await generateIndividualAPITest(endpoint, environment, components);
+  }
+  
+  const llmService = new LLMService();
+  const baseUrl = environment?.variables?.API_URL || environment?.variables?.BASE_URL || 'https://fakerestapi.azurewebsites.net';
+  const timeout = environment?.variables?.TIMEOUT || 30000;
+  
+  // Use enhanced prompt with variation support
+  const prompt = createEnhancedAPITestPrompt(endpoint, variation, baseUrl, environment, allVariations, components);
+  
+  // Prepare all variations for LLM service
+  const variationsToPass = allVariations && allVariations.length > 0 ? allVariations : [variation];
+  console.log('=== Generating Individual API Test with Variations ===');
+  console.log('Primary variation:', variation);
+  console.log('All variations:', variationsToPass);
+  console.log('Endpoint:', endpoint.method, endpoint.path);
+  
+  try {
+    const generatedCode = await llmService.generateCode(prompt, environment, {
+      testType: 'individual-api',
+      endpoint: endpoint,
+      variations: variationsToPass // Pass all variations to LLM service (only array values)
+    });
+    
+    return postProcessIndividualTestCode(generatedCode, endpoint, timeout, components, variationsToPass);
+  } catch (error) {
+    console.error('Error generating LLM individual test:', error);
+    // Fallback to clean template generation with variations
+    return generateCleanAPITestWithVariations(endpoint, timeout, components, variationsToPass);
+  }
+}
+
 async function generateLLME2EAPITestSuite(endpoints, resourceName, environment) {
   const llmService = new LLMService();
   const baseUrl = environment?.variables?.API_URL || environment?.variables?.BASE_URL || 'https://fakerestapi.azurewebsites.net';
@@ -1181,6 +1325,897 @@ async function generateLLME2EAPITestSuite(endpoints, resourceName, environment) 
     // Fallback to standard generation
     return await generateE2EAPITestSuite(endpoints, resourceName, environment);
   }
+}
+
+function createIndividualAPITestPrompt(endpoint, baseUrl, environment, components) {
+  const apiUrl = baseUrl || environment?.variables?.API_URL || environment?.variables?.BASE_URL || 'https://fakerestapi.azurewebsites.net';
+  const timeout = environment?.variables?.TIMEOUT || 30000;
+  const authHeaders = buildAuthorizationHeaders(environment);
+  const authInfo = environment?.authorization?.enabled ? 
+    `\n- **Authorization**: ${environment.authorization.type} (${environment.authorization.enabled ? 'enabled' : 'disabled'})` : 
+    '\n- **Authorization**: None';
+
+  // Get request body schema for meaningful test data generation
+  const requestBodySchema = getJsonRequestBodySchema(endpoint);
+  const hasRequestBody = ['POST', 'PUT', 'PATCH'].includes((endpoint.method || '').toUpperCase());
+  
+  let schemaInfo = '';
+  if (hasRequestBody && requestBodySchema) {
+    schemaInfo = `\n## Request Body Schema:
+\`\`\`json
+${JSON.stringify(requestBodySchema, null, 2)}
+\`\`\``;
+  }
+
+  return `You are an expert API testing engineer. Generate a comprehensive Playwright API test for the following endpoint with realistic test data using faker.js and proper assertions.
+
+## API Endpoint Information:
+- **Method**: ${endpoint.method}
+- **Path**: ${endpoint.path || endpoint.url || '/unknown'}
+- **Base URL**: ${apiUrl}
+- **Summary**: ${endpoint.summary || 'API endpoint test'}
+- **Description**: ${endpoint.description || 'Test API endpoint functionality'}${authInfo}
+- **Timeout**: ${timeout}ms${schemaInfo}
+
+## Requirements:
+1. **Use Faker.js for Realistic Data**: Import and use faker.js to generate realistic, random test data
+2. **Comprehensive Test Coverage**: Include happy path, error scenarios, and edge cases
+3. **Proper Assertions**: Validate response status, headers, and body structure
+4. **Environment Integration**: Use environment variables for configuration
+5. **Allure Reporting**: Include proper Allure attachments for test reporting
+
+## Faker.js Data Generation Guidelines:
+- Import faker: \`import { faker } from '@faker-js/faker';\`
+- Use faker methods for realistic data:
+  * \`faker.person.fullName()\` for names
+  * \`faker.internet.email()\` for email addresses
+  * \`faker.lorem.sentence()\` for descriptions
+  * \`faker.company.name()\` for company names
+  * \`faker.lorem.words(3)\` for short titles
+  * \`faker.number.int({ min: 1, max: 1000 })\` for numeric IDs
+  * \`faker.date.future()\` for future dates
+  * \`faker.helpers.arrayElement(['option1', 'option2'])\` for enum values
+- Generate different data for each test run to ensure variety
+- Use faker.seed() for reproducible tests if needed
+
+## Code Requirements:
+- Use Playwright's APIRequestContext for HTTP requests
+- Include proper error handling and timeout configuration
+- Add comprehensive assertions for response validation
+- Include Allure reporting for test results
+- Use environment variables for configuration
+- Handle authentication properly with Bearer tokens
+- Import and use faker.js for all test data generation
+
+## Example Faker Usage:
+\`\`\`javascript
+import { faker } from '@faker-js/faker';
+
+const sampleBody = {
+  name: faker.person.fullName(),
+  email: faker.internet.email(),
+  description: faker.lorem.sentence(),
+  age: faker.number.int({ min: 18, max: 65 }),
+  isActive: faker.datatype.boolean()
+};
+\`\`\`
+
+Generate a complete, production-ready Playwright API test that uses faker.js for realistic data generation and can be executed immediately.`;
+
+}
+
+function postProcessIndividualTestCode(generatedCode, endpoint, timeout, components = null, variations = null) {
+  // If the generated code is severely malformed, generate a clean test from scratch
+  const hasSevereErrors = generatedCode.includes('async () => {') || 
+                         generatedCode.includes('async () async () =>') ||
+                         generatedCode.includes('TIMEOUT,') ||
+                         generatedCode.includes('if (!response.ok())') ||
+                         generatedCode.includes('fetchToken()') ||
+                         generatedCode.includes('request.storageState') ||
+                         generatedCode.includes('playwright.request');
+  
+  if (hasSevereErrors) {
+    console.log('Detected severely malformed LLM code, generating clean test from scratch...');
+    if (variations && variations.length > 1) {
+      console.log('Multiple variations detected, generating test with variations:', variations);
+      return generateCleanAPITestWithVariations(endpoint, timeout, components, variations);
+    }
+    return generateCleanAPITest(endpoint, timeout, components);
+  }
+  
+  // Clean up and validate the generated code
+  let processedCode = generatedCode;
+  
+  // Remove any duplicate imports that might be in the middle of the code
+  const importRegex = /import\s+.*?from\s+['"][^'"]+['"];?\s*/g;
+  const imports = processedCode.match(importRegex) || [];
+  const uniqueImports = [...new Set(imports)];
+  
+  // Remove all imports from the code
+  processedCode = processedCode.replace(importRegex, '');
+  
+  // Remove any test.describe blocks that might be malformed
+  processedCode = processedCode.replace(/test\.describe\([^}]*\}\s*\)\s*;?\s*/g, '');
+  
+  // Remove any test.beforeAll/test.afterAll blocks that might be malformed
+  processedCode = processedCode.replace(/test\.beforeAll\([^}]*\}\s*\)\s*;?\s*/g, '');
+  processedCode = processedCode.replace(/test\.afterAll\([^}]*\}\s*\)\s*;?\s*/g, '');
+  
+  // Clean up any remaining malformed code
+  processedCode = processedCode.replace(/\s*test\.describe\([^}]*$/g, '');
+  processedCode = processedCode.replace(/\s*test\([^}]*$/g, '');
+  
+  // Fix common LLM syntax errors
+  processedCode = processedCode.replace(/=>\s*{/g, 'async () => {');
+  processedCode = processedCode.replace(/let request: APIRequestContext;/g, '');
+  processedCode = processedCode.replace(/let projectId: string;/g, '');
+  processedCode = processedCode.replace(/const BASE_URL = .*?;/g, '');
+  processedCode = processedCode.replace(/const TIMEOUT = .*?;/g, '');
+  processedCode = processedCode.replace(/const TOKEN_URL = .*?;/g, '');
+  processedCode = processedCode.replace(/const CLIENT_ID = .*?;/g, '');
+  processedCode = processedCode.replace(/const CLIENT_SECRET = .*?;/g, '');
+  processedCode = processedCode.replace(/const USERNAME = .*?;/g, '');
+  processedCode = processedCode.replace(/const PASSWORD = .*?;/g, '');
+  processedCode = processedCode.replace(/const SCOPE = .*?;/g, '');
+  
+  // Remove malformed function declarations
+  processedCode = processedCode.replace(/async function fetchToken\(\): Promise<string> \{[\s\S]*?\}/g, '');
+  processedCode = processedCode.replace(/request = await playwright\.request\.newContext\([\s\S]*?\}\);/g, '');
+  processedCode = processedCode.replace(/request\.storageState\([\s\S]*?\}\);/g, '');
+  
+  // Remove test.afterEach blocks that might be malformed
+  processedCode = processedCode.replace(/test\.afterEach\([\s\S]*?\}\);/g, '');
+  
+  // Clean up any remaining malformed code blocks
+  processedCode = processedCode.replace(/test\.beforeEach\([\s\S]*?\}\);/g, '');
+  
+  // Remove any remaining malformed syntax
+  processedCode = processedCode.replace(/^\s*=>\s*{[\s\S]*?^\s*}/gm, '');
+  processedCode = processedCode.replace(/^\s*=>\s*{[\s\S]*?^\s*}\s*$/gm, '');
+  
+  // Clean up extra closing braces
+  processedCode = processedCode.replace(/^\s*}\s*;\s*$/gm, '');
+  processedCode = processedCode.replace(/^\s*}\s*\)\s*;\s*$/gm, '');
+  
+  // Replace TODO comments in request body with Faker.js-generated data
+  // Check for any TODO pattern related to request body
+  const hasTodoComment = /\{\s*\/\*\s*TODO[^*]*\*\/\s*\}/gi.test(processedCode) || 
+                         /\{\s*\/\/\s*TODO[^\n]*\}/gi.test(processedCode) ||
+                         processedCode.includes('TODO: fill body');
+  
+  if (hasTodoComment) {
+    const requestBodySchema = getJsonRequestBodySchema(endpoint, components);
+    let fakerBody = '';
+    
+    if (requestBodySchema && requestBodySchema.properties) {
+      // Generate Faker.js data based on schema properties
+      const fakerFields = Object.entries(requestBodySchema.properties).map(([key, prop]) => {
+        const type = prop.type || 'string';
+        const isRequired = requestBodySchema.required?.includes(key);
+        
+        let fakerCode = '';
+        if (type === 'string') {
+          if (key.toLowerCase().includes('email')) {
+            fakerCode = `faker.internet.email()`;
+          } else if (key.toLowerCase().includes('name') || key.toLowerCase().includes('title')) {
+            fakerCode = `faker.person.fullName()`;
+          } else if (key.toLowerCase().includes('description')) {
+            fakerCode = `faker.lorem.sentence()`;
+          } else if (key.toLowerCase().includes('url')) {
+            fakerCode = `faker.internet.url()`;
+          } else if (key.toLowerCase().includes('phone')) {
+            fakerCode = `faker.phone.number()`;
+          } else if (key.toLowerCase().includes('address')) {
+            fakerCode = `faker.location.streetAddress()`;
+          } else {
+            fakerCode = `faker.lorem.words(3)`;
+          }
+        } else if (type === 'number' || type === 'integer') {
+          fakerCode = `faker.number.int({ min: 1, max: 1000 })`;
+        } else if (type === 'boolean') {
+          fakerCode = `faker.datatype.boolean()`;
+        } else if (type === 'array') {
+          fakerCode = `[faker.lorem.word()]`;
+        } else {
+          fakerCode = `faker.lorem.word()`;
+        }
+        
+        return `    ${key}: ${fakerCode}`;
+      }).join(',\n');
+      
+      fakerBody = `{
+${fakerFields}
+  }`;
+    } else {
+      // Generate fallback data based on endpoint path/method patterns
+      const path = (endpoint.path || endpoint.url || '').toLowerCase();
+      const method = (endpoint.method || '').toUpperCase();
+      
+      let fallbackFields = [];
+      
+      // Intelligent defaults based on common API patterns
+      if (path.includes('user')) {
+        fallbackFields = [
+          `    name: faker.person.fullName()`,
+          `    email: faker.internet.email()`,
+          `    username: faker.internet.userName()`,
+          `    phone: faker.phone.number()`
+        ];
+      } else if (path.includes('project') || path.includes('case')) {
+        fallbackFields = [
+          `    name: faker.lorem.words(3)`,
+          `    description: faker.lorem.sentence()`,
+          `    status: faker.helpers.arrayElement(['active', 'inactive', 'pending'])`
+        ];
+      } else if (path.includes('product') || path.includes('item')) {
+        fallbackFields = [
+          `    name: faker.commerce.productName()`,
+          `    description: faker.commerce.productDescription()`,
+          `    price: faker.number.float({ min: 1, max: 1000, fractionDigits: 2 })`
+        ];
+      } else {
+        // Generic fallback
+        fallbackFields = [
+          `    name: faker.person.fullName()`,
+          `    description: faker.lorem.sentence()`,
+          `    value: faker.number.int({ min: 1, max: 1000 })`
+        ];
+      }
+      
+      fakerBody = `{
+${fallbackFields.join(',\n')}
+  }`;
+    }
+    
+    // Replace TODO comments with generated data - comprehensive patterns
+    const todoPatterns = [
+      // Pattern: data: { /* TODO: fill body */ }
+      /data:\s*\{\s*\/\*\s*TODO[^*]*\*\/\s*\}/gi,
+      // Pattern: data: { // TODO: fill body }
+      /data:\s*\{\s*\/\/\s*TODO[^\n]*\s*\}/gi,
+      // Pattern: data: { /* TODO: fill body */ } with spacing
+      /data:\s*\{\s*\/\*\s*TODO:\s*fill\s*body\s*\*\/\s*\}/gi,
+      // Pattern: "data": { /* TODO */ }
+      /"data":\s*\{\s*\/\*\s*TODO[^*]*\*\/\s*\}/gi,
+      // Pattern: 'data': { /* TODO */ }
+      /'data':\s*\{\s*\/\*\s*TODO[^*]*\*\/\s*\}/gi,
+    ];
+    
+    todoPatterns.forEach(pattern => {
+      processedCode = processedCode.replace(pattern, (match) => {
+        return match.replace(/\{\s*\/\*[^*]*TODO[^*]*\*\/\s*\}|\{\s*\/\/[^\}]*\}/gi, fakerBody);
+      });
+    });
+    
+    // Handle requestOptions object pattern
+    processedCode = processedCode.replace(
+      /(const|let)\s+requestOptions\s*=\s*\{([\s\S]*?)data:\s*\{\s*\/\*[^*]*TODO[^*]*\*\/\s*\}([\s\S]*?)\};/gi,
+      (match, prefix, before, after) => {
+        return `${prefix} requestOptions = {${before}data: ${fakerBody}${after}};`;
+      }
+    );
+    
+    // Direct replacement in requestOptions
+    processedCode = processedCode.replace(
+      /requestOptions\s*=\s*\{[\s\S]*?data:\s*\{\s*\/\*[^*]*TODO[^*]*\*\/\s*\}[\s\S]*?\};/gi,
+      (match) => {
+        return match.replace(/data:\s*\{\s*\/\*[^*]*TODO[^*]*\*\/\s*\}/gi, `data: ${fakerBody}`);
+      }
+    );
+    
+    // Ensure Faker.js import is present
+    if (!processedCode.includes('import { faker }') && !processedCode.includes("from '@faker-js/faker'")) {
+      const firstImport = processedCode.match(/^import\s+.*?from.*?$/m);
+      if (firstImport) {
+        processedCode = processedCode.replace(
+          firstImport[0],
+          `${firstImport[0]}\nimport { faker } from '@faker-js/faker';`
+        );
+      } else {
+        // Add import at the very top
+        processedCode = `import { faker } from '@faker-js/faker';\n${processedCode}`;
+      }
+    }
+  }
+  
+  // Ensure we have a clean code block
+  processedCode = processedCode.trim();
+  
+  // If the processed code is empty or malformed, generate a simple test
+  if (!processedCode || processedCode.length < 50) {
+    if (variations && variations.length > 1) {
+      return generateCleanAPITestWithVariations(endpoint, timeout, components, variations);
+    }
+    return generateCleanAPITest(endpoint, timeout, components);
+  }
+  
+  // If multiple variations are provided, ALWAYS generate variation-specific test cases
+  const hasMultipleVariations = variations && Array.isArray(variations) && variations.length > 1;
+  
+  console.log(`=== Variation Processing Check ===`);
+  console.log(`Variations parameter:`, variations);
+  console.log(`Has multiple variations:`, hasMultipleVariations);
+  console.log(`Processed code length:`, processedCode.length);
+  
+  if (hasMultipleVariations) {
+    console.log(`=== FORCING generation of ${variations.length} variation test cases: ${variations.join(', ')} ===`);
+    
+    // COMPLETELY IGNORE processedCode and generate fresh test cases for all variations
+    // This ensures we always get the correct variation-specific tests
+    const generatedTestCases = variations.map(variation => {
+      const testCase = generateTestCaseForVariation(endpoint, variation, components);
+      console.log(`✓ Generated test case for variation: ${variation} (${testCase.length} chars)`);
+      return testCase;
+    }).join('\n\n  ');
+    
+    // COMPLETELY REPLACE processedCode with our generated test cases
+    processedCode = generatedTestCases;
+    
+    console.log(`✓ Successfully replaced processedCode with ${variations.length} variation-specific test cases (total: ${processedCode.length} chars)`);
+  } else {
+    console.log(`Skipping variation generation - single variation (${variations ? variations[0] : 'none'}) or no variations provided`);
+  }
+  
+  // Build the proper test structure
+  const testName = `${endpoint.method} ${endpoint.path || endpoint.url || '/unknown'}`;
+  const baseUrl = process.env.BASE_URL || process.env.API_URL || 'https://p-tray.dev.g42a.ae';
+  
+  // Final check: Replace any remaining TODO comments in processedCode before assembling
+  if (processedCode.includes('TODO') || processedCode.includes('/* TODO') || processedCode.includes('// TODO')) {
+    const requestBodySchema = getJsonRequestBodySchema(endpoint, components);
+    let fakerBody = '';
+    
+    if (requestBodySchema && requestBodySchema.properties) {
+      const fakerFields = Object.entries(requestBodySchema.properties).map(([key, prop]) => {
+        const type = prop.type || 'string';
+        let fakerCode = '';
+        if (type === 'string') {
+          if (key.toLowerCase().includes('email')) fakerCode = `faker.internet.email()`;
+          else if (key.toLowerCase().includes('name') || key.toLowerCase().includes('title')) fakerCode = `faker.person.fullName()`;
+          else if (key.toLowerCase().includes('description')) fakerCode = `faker.lorem.sentence()`;
+          else if (key.toLowerCase().includes('url')) fakerCode = `faker.internet.url()`;
+          else if (key.toLowerCase().includes('phone')) fakerCode = `faker.phone.number()`;
+          else fakerCode = `faker.lorem.words(3)`;
+        } else if (type === 'number' || type === 'integer') {
+          fakerCode = `faker.number.int({ min: 1, max: 1000 })`;
+        } else if (type === 'boolean') {
+          fakerCode = `faker.datatype.boolean()`;
+        } else {
+          fakerCode = `faker.lorem.word()`;
+        }
+        return `    ${key}: ${fakerCode}`;
+      }).join(',\n');
+      fakerBody = `{\n${fakerFields}\n  }`;
+    } else {
+      const path = (endpoint.path || endpoint.url || '').toLowerCase();
+      if (path.includes('user')) {
+        fakerBody = `{\n    name: faker.person.fullName(),\n    email: faker.internet.email(),\n    username: faker.internet.userName(),\n    phone: faker.phone.number()\n  }`;
+      } else {
+        fakerBody = `{\n    name: faker.person.fullName(),\n    description: faker.lorem.sentence(),\n    value: faker.number.int({ min: 1, max: 1000 })\n  }`;
+      }
+    }
+    
+    // Final aggressive TODO replacement
+    processedCode = processedCode.replace(/data:\s*\{\s*\/\*[^*]*TODO[^*]*\*\/\s*\}/gi, `data: ${fakerBody}`);
+    processedCode = processedCode.replace(/data:\s*\{\s*\/\/[^\n]*TODO[^\n]*\s*\}/gi, `data: ${fakerBody}`);
+    
+    // Ensure Faker import
+    if (!processedCode.includes('import { faker }') && !uniqueImports.some(imp => imp.includes('faker'))) {
+      uniqueImports.push("import { faker } from '@faker-js/faker';");
+    }
+  }
+
+  // Create the final properly structured code
+  let finalCode = `${uniqueImports.join('\n')}
+
+test.describe('${testName}', () => {
+  let requestContext: APIRequestContext;
+
+  test.beforeAll(async () => {
+    const { request } = await import('@playwright/test');
+    requestContext = await request.newContext({
+      baseURL: process.env.BASE_URL || process.env.API_URL || '${baseUrl}',
+      extraHTTPHeaders: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": \`Bearer \${process.env.API_TOKEN || process.env.OAUTH_TOKEN}\`
+      },
+      timeout: parseInt(process.env.TIMEOUT || '${timeout}', 10)
+    });
+  });
+
+  test.afterAll(async () => {
+    await requestContext.dispose();
+  });
+
+  ${processedCode}
+});`;
+
+  // Final pass: Replace any TODO that might still exist in the final assembled code
+  if (finalCode.includes('TODO') || finalCode.includes('/* TODO') || finalCode.includes('// TODO')) {
+    const requestBodySchema = getJsonRequestBodySchema(endpoint, components);
+    let fakerBody = '';
+    
+    if (requestBodySchema && requestBodySchema.properties) {
+      const fakerFields = Object.entries(requestBodySchema.properties).map(([key, prop]) => {
+        const type = prop.type || 'string';
+        let fakerCode = '';
+        if (type === 'string') {
+          if (key.toLowerCase().includes('email')) fakerCode = `faker.internet.email()`;
+          else if (key.toLowerCase().includes('name') || key.toLowerCase().includes('title')) fakerCode = `faker.person.fullName()`;
+          else if (key.toLowerCase().includes('description')) fakerCode = `faker.lorem.sentence()`;
+          else if (key.toLowerCase().includes('url')) fakerCode = `faker.internet.url()`;
+          else if (key.toLowerCase().includes('phone')) fakerCode = `faker.phone.number()`;
+          else fakerCode = `faker.lorem.words(3)`;
+        } else if (type === 'number' || type === 'integer') {
+          fakerCode = `faker.number.int({ min: 1, max: 1000 })`;
+        } else if (type === 'boolean') {
+          fakerCode = `faker.datatype.boolean()`;
+        } else {
+          fakerCode = `faker.lorem.word()`;
+        }
+        return `    ${key}: ${fakerCode}`;
+      }).join(',\n');
+      fakerBody = `{\n${fakerFields}\n  }`;
+    } else {
+      const path = (endpoint.path || endpoint.url || '').toLowerCase();
+      if (path.includes('user')) {
+        fakerBody = `{\n    name: faker.person.fullName(),\n    email: faker.internet.email(),\n    username: faker.internet.userName(),\n    phone: faker.phone.number()\n  }`;
+      } else {
+        fakerBody = `{\n    name: faker.person.fullName(),\n    description: faker.lorem.sentence(),\n    value: faker.number.int({ min: 1, max: 1000 })\n  }`;
+      }
+    }
+    
+    finalCode = finalCode.replace(/data:\s*\{\s*\/\*[^*]*TODO[^*]*\*\/\s*\}/gi, `data: ${fakerBody}`);
+    finalCode = finalCode.replace(/data:\s*\{\s*\/\/[^\n]*TODO[^\n]*\s*\}/gi, `data: ${fakerBody}`);
+    
+    // Ensure Faker import in final code
+    if (!finalCode.includes('import { faker }') && !finalCode.includes("from '@faker-js/faker'")) {
+      finalCode = finalCode.replace(/^(import[^;]+;)/m, `$1\nimport { faker } from '@faker-js/faker';`);
+    }
+  }
+
+  // FINAL VERIFICATION: If variations were provided, ensure we have the correct number of test cases
+  if (variations && Array.isArray(variations) && variations.length > 1) {
+    const finalTestCaseCount = (finalCode.match(/test\s*\(/g) || []).length;
+    console.log(`=== Final Verification ===`);
+    console.log(`Expected test cases: ${variations.length}`);
+    console.log(`Actual test cases in final code: ${finalTestCaseCount}`);
+    
+    if (finalTestCaseCount < variations.length) {
+      console.log(`WARNING: Final code only has ${finalTestCaseCount} test case(s), expected ${variations.length}. Regenerating...`);
+      // Regenerate with variations - this should not happen but is a safety net
+      return generateCleanAPITestWithVariations(endpoint, timeout, components, variations);
+    } else {
+      console.log(`✓ Verification passed: ${finalTestCaseCount} test cases found`);
+    }
+  }
+
+  return finalCode;
+}
+
+// Generate a clean API test with required fields and Faker data
+function generateCleanAPITest(endpoint, timeout, components = null) {
+  const schema = getJsonRequestBodySchema(endpoint, components);
+  const hasBody = ['POST', 'PUT', 'PATCH'].includes((endpoint.method || '').toUpperCase());
+  
+  let requestBodyData = '';
+  if (hasBody) {
+    if (schema && schema.properties) {
+      // Generate Faker.js data based on schema
+      const fakerFields = Object.entries(schema.properties).map(([key, prop]) => {
+        const type = prop.type || 'string';
+        let fakerCode = '';
+        if (type === 'string') {
+          if (key.toLowerCase().includes('email')) fakerCode = `faker.internet.email()`;
+          else if (key.toLowerCase().includes('name') || key.toLowerCase().includes('title')) fakerCode = `faker.person.fullName()`;
+          else if (key.toLowerCase().includes('description')) fakerCode = `faker.lorem.sentence()`;
+          else if (key.toLowerCase().includes('url')) fakerCode = `faker.internet.url()`;
+          else if (key.toLowerCase().includes('phone')) fakerCode = `faker.phone.number()`;
+          else fakerCode = `faker.lorem.words(3)`;
+        } else if (type === 'number' || type === 'integer') {
+          fakerCode = `faker.number.int({ min: 1, max: 1000 })`;
+        } else if (type === 'boolean') {
+          fakerCode = `faker.datatype.boolean()`;
+        } else {
+          fakerCode = `faker.lorem.word()`;
+        }
+        return `    ${key}: ${fakerCode}`;
+      }).join(',\n');
+      requestBodyData = `{
+${fakerFields}
+  }`;
+    } else {
+      // Fallback based on endpoint path
+      const path = (endpoint.path || endpoint.url || '').toLowerCase();
+      if (path.includes('user')) {
+        requestBodyData = `{
+    name: faker.person.fullName(),
+    email: faker.internet.email(),
+    username: faker.internet.userName(),
+    phone: faker.phone.number()
+  }`;
+      } else {
+        requestBodyData = `{
+    name: faker.person.fullName(),
+    description: faker.lorem.sentence(),
+    value: faker.number.int({ min: 1, max: 1000 })
+  }`;
+      }
+    }
+  }
+  
+  const testName = `${endpoint.method} ${endpoint.path || endpoint.url || '/unknown'}`;
+  const baseUrl = process.env.BASE_URL || process.env.API_URL || 'https://p-tray.dev.g42a.ae';
+  const expectedStatus = getExpectedStatus(endpoint);
+  
+  return `import { test, expect, APIRequestContext } from '@playwright/test';
+import { allure } from 'allure-playwright';
+import { faker } from '@faker-js/faker';
+
+test.describe('${testName}', () => {
+  let requestContext: APIRequestContext;
+
+  test.beforeAll(async () => {
+    const { request } = await import('@playwright/test');
+    requestContext = await request.newContext({
+      baseURL: process.env.BASE_URL || process.env.API_URL || '${baseUrl}',
+      extraHTTPHeaders: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": \`Bearer \${process.env.API_TOKEN || process.env.OAUTH_TOKEN}\`
+      },
+      timeout: parseInt(process.env.TIMEOUT || '${timeout}', 10)
+    });
+  });
+
+  test.afterAll(async () => {
+    await requestContext.dispose();
+  });
+
+  test('${testName} - should return ${expectedStatus}', async () => {
+    const requestOptions = {${hasBody ? `
+      data: ${requestBodyData}` : ''}
+    };
+    
+    const response = await requestContext.${(endpoint.method || 'GET').toLowerCase()}('${endpoint.path || endpoint.url || '/unknown'}'${hasBody ? ', requestOptions' : ''});
+    await expect(response.status()).toBe(${expectedStatus});
+    
+    const responseBody = await response.json().catch(() => null);
+    await allure.attachment('Response Status', String(response.status()), 'text/plain');
+    await allure.attachment('Response Body', JSON.stringify(responseBody, null, 2), 'application/json');
+  });
+});`;
+}
+
+// Generate a single test case for a specific variation
+function generateTestCaseForVariation(endpoint, variation, components = null) {
+  const method = endpoint.method?.toUpperCase() || 'GET';
+  const path = endpoint.path || endpoint.url || '/unknown';
+  const expectedStatus = getExpectedStatus(endpoint);
+  const hasBody = ['POST', 'PUT', 'PATCH'].includes(method);
+  
+  const schema = getJsonRequestBodySchema(endpoint, components);
+  const variationLower = (variation || '').toLowerCase();
+  let requestBodyData = '';
+  let testLogic = '';
+  let expectedStatusCode = expectedStatus;
+  let additionalAssertions = '';
+  
+  // Variation-specific test data and logic generation
+  if (hasBody) {
+    if (variationLower.includes('negative') || variationLower.includes('error')) {
+      // NEGATIVE/ERROR CASES: Invalid data that should cause errors
+      expectedStatusCode = method === 'POST' ? '400' : '404';
+      testLogic = `// Testing ${variation}: Invalid or malformed request data that should return error`;
+      
+      if (schema && schema.properties) {
+        // Generate invalid data based on schema
+        const invalidFields = Object.entries(schema.properties).map(([key, prop]) => {
+          const type = prop.type || 'string';
+          if (type === 'string') {
+            return `    ${key}: null`; // Invalid: null for required string
+          } else if (type === 'number' || type === 'integer') {
+            return `    ${key}: 'invalid-number'`; // Invalid: string for number
+          } else if (type === 'boolean') {
+            return `    ${key}: 'not-a-boolean'`; // Invalid: string for boolean
+          }
+          return `    ${key}: null`;
+        }).join(',\n');
+        requestBodyData = `{
+${invalidFields}
+  }`;
+      } else {
+        // Generic invalid data
+        requestBodyData = `{
+    invalidField: null,
+    missingRequiredFields: true
+  }`;
+      }
+      
+      additionalAssertions = `
+    // Verify error response structure
+    expect(responseBody).toBeTruthy();
+    ${method === 'POST' ? `// For POST, expect validation error` : `// For other methods, expect not found or validation error`}`;
+      
+    } else if (variationLower.includes('edge')) {
+      // EDGE CASES: Boundary values, empty strings, extreme values
+      testLogic = `// Testing ${variation}: Boundary values and edge conditions`;
+      
+      if (schema && schema.properties) {
+        const edgeFields = Object.entries(schema.properties).map(([key, prop]) => {
+          const type = prop.type || 'string';
+          if (type === 'string') {
+            // Empty string, very long string, special characters
+            if (key.toLowerCase().includes('email')) {
+              return `    ${key}: 'a@b.c'`; // Minimal valid email
+            }
+            return `    ${key}: ''`; // Empty string edge case
+          } else if (type === 'number' || type === 'integer') {
+            // Minimum, maximum, or zero
+            const minValue = prop.minimum !== undefined ? prop.minimum : 0;
+            const maxValue = prop.maximum !== undefined ? prop.maximum : 999999;
+            return `    ${key}: ${minValue}`; // Minimum boundary value
+          } else if (type === 'boolean') {
+            return `    ${key}: false`; // Edge case: false value
+          } else if (type === 'array') {
+            return `    ${key}: []`; // Empty array edge case
+          }
+          return `    ${key}: null`;
+        }).join(',\n');
+        requestBodyData = `{
+${edgeFields}
+  }`;
+      } else {
+        // Generic edge case data
+        const pathLower = path.toLowerCase();
+        if (pathLower.includes('user')) {
+          requestBodyData = `{
+    name: '',
+    email: 'a@b.c',
+    username: '',
+    phone: ''
+  }`;
+        } else {
+          requestBodyData = `{
+    name: '',
+    description: '',
+    value: 0
+  }`;
+        }
+      }
+      
+      additionalAssertions = `
+    // Verify edge case handling - API should handle boundary values gracefully
+    expect(response.status()).toBeGreaterThanOrEqual(200);
+    expect(response.status()).toBeLessThan(500);`;
+      
+    } else if (variationLower.includes('performance')) {
+      // PERFORMANCE: Large payloads, stress testing
+      testLogic = `// Testing ${variation}: Performance testing with realistic data and response time validation`;
+      
+      if (schema && schema.properties) {
+        const perfFields = Object.entries(schema.properties).map(([key, prop]) => {
+          const type = prop.type || 'string';
+          if (type === 'string') {
+            // Generate realistic but normal-sized data for performance testing
+            if (key.toLowerCase().includes('email')) {
+              return `    ${key}: faker.internet.email()`;
+            } else if (key.toLowerCase().includes('name') || key.toLowerCase().includes('title')) {
+              return `    ${key}: faker.person.fullName()`;
+            } else if (key.toLowerCase().includes('description')) {
+              return `    ${key}: faker.lorem.paragraph()`;
+            } else {
+              return `    ${key}: faker.lorem.sentence()`;
+            }
+          } else if (type === 'number' || type === 'integer') {
+            return `    ${key}: faker.number.int({ min: 1, max: 1000 })`;
+          } else if (type === 'boolean') {
+            return `    ${key}: faker.datatype.boolean()`;
+          } else {
+            return `    ${key}: faker.lorem.word()`;
+          }
+        }).join(',\n');
+        requestBodyData = `{
+${perfFields}
+  }`;
+      } else {
+        const pathLower = path.toLowerCase();
+        if (pathLower.includes('user')) {
+          requestBodyData = `{
+    name: faker.person.fullName(),
+    email: faker.internet.email(),
+    username: faker.internet.userName(),
+    phone: faker.phone.number()
+  }`;
+        } else {
+          requestBodyData = `{
+    name: faker.person.fullName(),
+    description: faker.lorem.paragraph(),
+    value: faker.number.int({ min: 1, max: 1000 })
+  }`;
+        }
+      }
+      
+      additionalAssertions = `
+    // Performance assertion: Response should be received within reasonable time
+    const responseTime = Date.now() - startTime;
+    console.log('Response time:', responseTime, 'ms');
+    expect(responseTime).toBeLessThan(5000); // Should complete within 5 seconds`;
+      
+    } else if (variationLower.includes('security')) {
+      // SECURITY: SQL injection, XSS, and other security payloads
+      testLogic = `// Testing ${variation}: Security testing with potentially malicious payloads`;
+      expectedStatusCode = method === 'POST' ? '400' : '400'; // Often rejected
+      
+      if (schema && schema.properties) {
+        const securityFields = Object.entries(schema.properties).map(([key, prop]) => {
+          const type = prop.type || 'string';
+          if (type === 'string') {
+            return `    ${key}: "'; DROP TABLE users; --"`; // SQL injection attempt
+          } else if (type === 'number' || type === 'integer') {
+            return `    ${key}: 0`; // Zero might be used in some exploits
+          } else {
+            return `    ${key}: "<script>alert('xss')</script>"`; // XSS attempt
+          }
+        }).join(',\n');
+        requestBodyData = `{
+${securityFields}
+  }`;
+      } else {
+        requestBodyData = `{
+    name: "'; DROP TABLE users; --",
+    email: "test@test.com",
+    description: "<script>alert('xss')</script>"
+  }`;
+      }
+      
+      additionalAssertions = `
+    // Security: Verify API properly sanitizes or rejects malicious input
+    expect(response.status()).toBeGreaterThanOrEqual(400);`;
+      
+    } else {
+      // HAPPY PATH or DEFAULT: Valid, realistic data
+      testLogic = `// Testing ${variation}: Valid request with expected successful response`;
+      
+      if (schema && schema.properties) {
+        const fakerFields = Object.entries(schema.properties).map(([key, prop]) => {
+          const type = prop.type || 'string';
+          let fakerCode = '';
+          if (type === 'string') {
+            if (key.toLowerCase().includes('email')) fakerCode = `faker.internet.email()`;
+            else if (key.toLowerCase().includes('name') || key.toLowerCase().includes('title')) fakerCode = `faker.person.fullName()`;
+            else if (key.toLowerCase().includes('description')) fakerCode = `faker.lorem.sentence()`;
+            else if (key.toLowerCase().includes('url')) fakerCode = `faker.internet.url()`;
+            else if (key.toLowerCase().includes('phone')) fakerCode = `faker.phone.number()`;
+            else fakerCode = `faker.lorem.words(3)`;
+          } else if (type === 'number' || type === 'integer') {
+            fakerCode = `faker.number.int({ min: 1, max: 1000 })`;
+          } else if (type === 'boolean') {
+            fakerCode = `faker.datatype.boolean()`;
+          } else {
+            fakerCode = `faker.lorem.word()`;
+          }
+          return `    ${key}: ${fakerCode}`;
+        }).join(',\n');
+        requestBodyData = `{
+${fakerFields}
+  }`;
+      } else {
+        const pathLower = path.toLowerCase();
+        if (pathLower.includes('user')) {
+          requestBodyData = `{
+    name: faker.person.fullName(),
+    email: faker.internet.email(),
+    username: faker.internet.userName(),
+    phone: faker.phone.number()
+  }`;
+        } else {
+          requestBodyData = `{
+    name: faker.person.fullName(),
+    description: faker.lorem.sentence(),
+    value: faker.number.int({ min: 1, max: 1000 })
+  }`;
+        }
+      }
+      
+      additionalAssertions = `
+    // Happy path: Verify successful response and data structure
+    expect(response.status()).toBe(${expectedStatus});
+    if (responseBody) {
+      expect(responseBody).toBeTruthy();
+    }`;
+    }
+  } else {
+    // No request body (GET requests, etc.) - still apply variation-specific logic
+    if (variationLower.includes('negative') || variationLower.includes('error')) {
+      testLogic = `// Testing ${variation}: Invalid endpoint or parameters that should return error`;
+      expectedStatusCode = '404';
+      additionalAssertions = `
+    // Verify error response for invalid request
+    expect(response.status()).toBeGreaterThanOrEqual(400);`;
+    } else if (variationLower.includes('edge')) {
+      testLogic = `// Testing ${variation}: Edge case parameters (invalid IDs, empty strings in query)`;
+      additionalAssertions = `
+    // Edge case: API should handle gracefully or return appropriate error
+    expect(response.status()).toBeGreaterThanOrEqual(200);
+    expect(response.status()).toBeLessThan(500);`;
+    } else if (variationLower.includes('performance')) {
+      testLogic = `// Testing ${variation}: Performance testing - verify response time`;
+      additionalAssertions = `
+    // Performance: Check response time
+    const responseTime = Date.now() - startTime;
+    console.log('Response time:', responseTime, 'ms');
+    expect(responseTime).toBeLessThan(5000); // Should complete within 5 seconds`;
+    } else {
+      testLogic = `// Testing ${variation}: Valid request with expected successful response`;
+      additionalAssertions = `
+    // Happy path: Verify successful response
+    expect(response.status()).toBe(${expectedStatus});
+    if (responseBody) {
+      expect(responseBody).toBeTruthy();
+    }`;
+    }
+  }
+  
+  const hasStartTime = variationLower.includes('performance');
+  
+  return `test('${method} ${path} - ${variation}', async () => {
+    ${testLogic}
+    ${hasStartTime ? `const startTime = Date.now();` : ''}
+    ${hasBody ? `const requestOptions = {
+      data: ${requestBodyData}
+    };
+    
+    const response = await requestContext.${method.toLowerCase()}('${path}', requestOptions);` : `const response = await requestContext.${method.toLowerCase()}('${path}');`}
+    
+    await expect(response.status()).toBe(${expectedStatusCode});
+    
+    const responseBody = await response.json().catch(() => null);
+    ${additionalAssertions}
+    
+    await allure.attachment('Response Status', String(response.status()), 'text/plain');
+    await allure.attachment('Response Body', JSON.stringify(responseBody, null, 2), 'application/json');
+    await allure.label('variation', '${variation}');
+  });`;
+}
+
+// Generate a clean API test with multiple variations
+function generateCleanAPITestWithVariations(endpoint, timeout, components = null, variations = ['happy-path']) {
+  const testName = `${endpoint.method} ${endpoint.path || endpoint.url || '/unknown'}`;
+  const baseUrl = process.env.BASE_URL || process.env.API_URL || 'https://p-tray.dev.g42a.ae';
+  
+  // Generate test cases for each variation
+  const testCases = variations.map(variation => {
+    return generateTestCaseForVariation(endpoint, variation, components);
+  }).join('\n\n  ');
+  
+  return `import { test, expect, APIRequestContext } from '@playwright/test';
+import { allure } from 'allure-playwright';
+import { faker } from '@faker-js/faker';
+
+test.describe('${testName}', () => {
+  let requestContext: APIRequestContext;
+
+  test.beforeAll(async () => {
+    const { request } = await import('@playwright/test');
+    requestContext = await request.newContext({
+      baseURL: process.env.BASE_URL || process.env.API_URL || '${baseUrl}',
+      extraHTTPHeaders: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": \`Bearer \${process.env.API_TOKEN || process.env.OAUTH_TOKEN}\`
+      },
+      timeout: parseInt(process.env.TIMEOUT || '${timeout}', 10)
+    });
+  });
+
+  test.afterAll(async () => {
+    await requestContext.dispose();
+  });
+
+  ${testCases}
+});`;
 }
 
 function createEnhancedAPITestPrompt2(endpoint, variation, baseUrl, environment) {
@@ -1327,9 +2362,9 @@ IMPORTANT: Ensure all TypeScript types are properly declared to avoid compilatio
 Focus on the **${variation}** variation as the primary test case, but include elements from other variations where relevant.`;
 
 }
-function createEnhancedAPITestPrompt(endpoint, variation, baseUrl, environment) {
+function createEnhancedAPITestPrompt(endpoint, variation, baseUrl, environment, allVariations = null, components = null) {
   const apiUrl = baseUrl || environment?.variables?.API_URL || environment?.variables?.BASE_URL;
-  const testVariations = environment?.variables?.TEST_VARIATIONS || ['happy-path', 'negative', 'edge-case', 'boundary', 'security'];
+  const testVariations = allVariations || environment?.variables?.TEST_VARIATIONS || ['happy-path', 'negative', 'edge-case', 'boundary', 'security'];
   const authHeaders = buildAuthorizationHeaders(environment);
 
   const method = endpoint.method?.toUpperCase?.() || 'GET';
@@ -1347,6 +2382,25 @@ function createEnhancedAPITestPrompt(endpoint, variation, baseUrl, environment) 
       return `- **${param.name}** (${param.in}) ${param.required ? '(required)' : '(optional)'}: ${param.schema?.type || 'unknown'}${param.schema?.default !== undefined ? ` (default: ${JSON.stringify(param.schema.default)})` : ''}`;
     }).join('\n');
   };
+
+  // Get request body schema for meaningful test data generation
+  const requestBodySchema = getJsonRequestBodySchema(endpoint, components);
+  const hasRequestBody = ['POST', 'PUT', 'PATCH'].includes(method);
+  
+  let requestBodyInfo = '';
+  if (hasRequestBody && requestBodySchema) {
+    requestBodyInfo = `\n
+### 📨 Request Body Schema
+\`\`\`json
+${JSON.stringify(requestBodySchema, null, 2)}
+\`\`\`
+
+**CRITICAL**: You MUST generate realistic test data for the request body based on this schema. Use Faker.js to populate all fields according to their types and constraints.`;
+  } else if (hasRequestBody) {
+    requestBodyInfo = `\n
+### 📨 Request Body
+**Note**: This endpoint requires a request body, but no schema is available. Generate appropriate test data based on the endpoint's purpose and HTTP method.`;
+  }
 
   const authInfo = environment?.authorization?.enabled
     ? `\n- **Authorization**: ${environment.authorization.type} (enabled)`
@@ -1376,7 +2430,7 @@ ${stringifyParams(pathParams)}
 ${stringifyParams(queryParams)}
 
 ### 📨 Header Parameters
-${stringifyParams(headerParams)}
+${stringifyParams(headerParams)}${requestBodyInfo}
 
 ---
 
@@ -1395,11 +2449,28 @@ ${stringifyParams(headerParams)}
 
 ---
 
-## 🧪 Test Variation: **${variation}**
+## 🧪 Test Variations
 
-Define **${variation}** as the primary test focus. Use other test variations from the following list for secondary tests:
+${testVariations.length > 1 ? 
+  `**CRITICAL**: You MUST generate **${testVariations.length} separate test cases** (one \`test()\` block for each variation) within the same test file. Each variation should have its own dedicated test case with appropriate test data and assertions.
 
-${testVariations.map(v => `- ${v === variation ? `✅ **${v.toUpperCase()} (PRIMARY)**` : `⚪ ${v.toUpperCase()} (SECONDARY)`}`).join('\n')}
+**Variations to implement:**
+${testVariations.map((v, idx) => `- **${v.toUpperCase()}** ${idx === 0 ? '(PRIMARY - focus)' : '(ADDITIONAL)'}`).join('\n')}
+
+**Test Case Structure Required:**
+\`\`\`typescript
+test.describe('${method} ${path} - Multiple Variations', () => {
+  // ... setup code ...
+  
+  ${testVariations.map(v => `test('${method} ${path} - ${v}', async () => {
+    // Test implementation for ${v} variation
+    // Include specific test data and assertions for this variation
+  });`).join('\n\n  ')}
+});
+\`\`\`` : 
+  `**Primary Variation**: **${variation.toUpperCase()}**
+
+Focus on **${variation}** as the primary test case.`}
 
 ---
 
@@ -1412,18 +2483,84 @@ import { allure } from 'allure-playwright';
 
 test.describe('${method} ${path} - ${variation}', () => {
   let requestContext: APIRequestContext;
+  let apiToken: string;
 
   test.beforeAll(async () => {
     const { request } = await import('@playwright/test');
+    
+    // Resolve API token from multiple possible sources
+    const rawToken = 
+      process.env.API_TOKEN ||
+      process.env.BEARER_TOKEN ||
+      process.env.ACCESS_TOKEN ||
+      process.env.authorizationToken;
+
+    if (!rawToken || rawToken.trim() === '') {
+      // Try OAuth2 token fetching if no static token is available
+      const tokenUrl = process.env.TOKEN_URL || process.env.AUTH_URL;
+      const clientId = process.env.CLIENT_ID;
+      const clientSecret = process.env.CLIENT_SECRET;
+      const username = process.env.API_USERNAME || process.env.USERNAME;
+      const password = process.env.API_PASSWORD || process.env.PASSWORD;
+      const scope = process.env.SCOPE || 'openid';
+
+      if (tokenUrl && clientId && clientSecret && username && password) {
+        try {
+          console.log('🔐 Attempting to fetch OAuth2 token...');
+          const axios = (await import('axios')).default;
+          const form = new URLSearchParams();
+          form.append('client_id', clientId);
+          form.append('client_secret', clientSecret);
+          form.append('grant_type', 'password');
+          form.append('username', username);
+          form.append('password', password);
+          form.append('scope', scope);
+
+          const resp = await axios.post(tokenUrl, form, { 
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, 
+            timeout: 15000 
+          });
+          
+          if (resp.data?.access_token) {
+            apiToken = resp.data.access_token;
+            console.log('✅ OAuth2 token fetched successfully');
+          } else {
+            throw new Error('OAuth2 response missing access_token');
+          }
+        } catch (error) {
+          console.error('❌ OAuth2 token fetch failed:', error);
+          throw new Error(\`OAuth2 token fetch failed: \${error.message}\`);
+        }
+      } else {
+        throw new Error('API_TOKEN missing. Or set TOKEN_URL/CLIENT_ID/CLIENT_SECRET/USERNAME/PASSWORD to fetch token.');
+      }
+    } else {
+      apiToken = rawToken.trim();
+      console.log('✅ Using static API token from environment');
+    }
+
+    // Create request context with environment-based configuration
+    const baseURL = process.env.API_URL || process.env.BASE_URL || '${apiUrl}';
+    
     requestContext = await request.newContext({
-      baseURL: '${apiUrl}',
-      extraHTTPHeaders: ${JSON.stringify(authHeaders, null, 2)},
-      timeout: 30000,
+      baseURL,
+      extraHTTPHeaders: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': \`Bearer \${apiToken}\`,
+        'X-Space': process.env.X_SPACE || 'default'
+      },
+      timeout: parseInt(process.env.TIMEOUT || '30000', 10)
     });
+
+    console.log(\`🌍 API Test Environment: \${baseURL}\`);
+    console.log(\`🔐 Authorization: Bearer \${apiToken ? '***REDACTED***' : 'Not set'}\`);
   });
 
   test.afterAll(async () => {
-    await requestContext.dispose();
+    if (requestContext) {
+      await requestContext.dispose();
+    }
   });
 
   // Implement tests here
@@ -1432,7 +2569,34 @@ test.describe('${method} ${path} - ${variation}', () => {
 
 ---
 
-### 2. **Schema-Based Test Cases**
+### 2. **Faker.js Data Generation - CRITICAL REQUIREMENT**
+**You MUST use Faker.js to generate realistic test data. NEVER leave TODO comments or empty data objects.**
+
+- **Import Faker.js**: \`import { faker } from '@faker-js/faker';\`
+- **Generate realistic data for request body**:
+  * String fields: \`faker.person.fullName()\`, \`faker.company.name()\`, \`faker.lorem.sentence()\`, \`faker.lorem.words(3)\`
+  * Email: \`faker.internet.email()\`
+  * Numbers: \`faker.number.int({ min: 1, max: 1000 })\`, \`faker.number.float()\`
+  * Dates: \`faker.date.future()\`, \`faker.date.past()\`, \`faker.date.recent()\`
+  * Booleans: \`faker.datatype.boolean()\`
+  * Enums: \`faker.helpers.arrayElement(['option1', 'option2'])\`
+  * UUIDs: \`faker.string.uuid()\`
+  * URLs: \`faker.internet.url()\`
+
+**Example for request body:**
+\`\`\`typescript
+const requestBody = {
+  name: faker.person.fullName(),
+  email: faker.internet.email(),
+  description: faker.lorem.sentence(),
+  age: faker.number.int({ min: 18, max: 65 }),
+  isActive: faker.datatype.boolean()
+};
+\`\`\`
+
+**CRITICAL**: Replace any placeholder like \`{ /* TODO: fill body */ }\` with actual Faker.js-generated data based on the request body schema.
+
+### 3. **Schema-Based Test Cases**
 - Generate valid and invalid test data covering:
   - Required and optional query, path, and header parameters
   - Edge cases (long strings, nulls, special characters)
@@ -1441,7 +2605,7 @@ test.describe('${method} ${path} - ${variation}', () => {
 
 ---
 
-### 3. **Code Quality and Typing**
+### 4. **Code Quality and Typing**
 - Use strict TypeScript typings:
   - e.g., \`const response: APIResponse = await ...\`
   - Catch errors with \`catch (error: unknown)\`
@@ -1451,7 +2615,7 @@ test.describe('${method} ${path} - ${variation}', () => {
 
 ---
 
-### 4. **Advanced Reporting**
+### 5. **Advanced Reporting**
 - Utilize Allure for detailed test reporting
 - Include request and response logging
 - Validate response headers and schema compliance
@@ -1459,7 +2623,7 @@ test.describe('${method} ${path} - ${variation}', () => {
 
 ---
 
-### 5. **Environment Configuration Support**
+### 6. **Environment Configuration Support**
 - Use base URL from \`API_URL\` environment variable or fallback to passed \`baseUrl\`
 - Support optional headers from environment config (e.g., \`X-Space\`)
 - Handle request timeouts, retries, and multiple environments gracefully
@@ -1468,9 +2632,18 @@ test.describe('${method} ${path} - ${variation}', () => {
 
 🔧 **Final Instructions:**
 - Deliver a robust, reusable, production-ready Playwright API test
-- Prioritize the **${variation}** scenario
+${testVariations.length > 1 ? 
+  `- **CRITICAL**: Generate **${testVariations.length} separate test cases** - one \`test()\` block for each of the following variations: ${testVariations.join(', ')}
+- Each test case should have:
+  * Descriptive test name including the variation name (e.g., "POST /user - happy-path", "POST /user - negative")
+  * Variation-specific test data and assertions
+  * Proper error handling for that variation
+  * Allure reporting tags for the variation` :
+  `- Prioritize the **${variation}** scenario
+- Generate one comprehensive test case for this variation`}
 - Ensure extensibility for all test types over time
 - Maintain excellent code structure, documentation, and typing discipline
+- Use Faker.js for all test data generation - NEVER leave TODO comments or empty data objects
 
 Generate the complete, typed Playwright API test code implementing the above.
 `;
@@ -2046,6 +3219,50 @@ function postProcessE2ETestCode(generatedCode, endpoints, resourceName, timeout)
   // Ensure proper imports and structure
   let processedCode = generatedCode;
   
+  // Extract and deduplicate imports - must be at the top
+  const importRegex = /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+['"][^'"]+['"];?)/g;
+  const imports = [];
+  const seenImports = new Set();
+  
+  let match;
+  while ((match = importRegex.exec(processedCode)) !== null) {
+    const importLine = match[0].trim();
+    // Normalize import for deduplication (remove extra spaces)
+    const normalized = importLine.replace(/\s+/g, ' ').replace(/from\s+['"]/g, 'from "');
+    if (!seenImports.has(normalized)) {
+      seenImports.add(normalized);
+      imports.push(importLine);
+    }
+  }
+  
+  // Remove all imports from code
+  processedCode = processedCode.replace(importRegex, '');
+  
+  // Remove test.describe/test blocks that wrap imports (malformed)
+  processedCode = processedCode.replace(/test\.describe\([^)]+\)\s*\{\s*(test\.'[^']+'|import)/g, 'import');
+  processedCode = processedCode.replace(/test\.'[^']+'[^}]*\{\s*(import)/g, 'import');
+  
+  // Remove duplicate import statements
+  processedCode = processedCode.replace(/import\s+[^;]+;/g, '');
+  processedCode = processedCode.replace(/import\s+[^;]+from\s+['"][^'"]+['"];?/g, '');
+  
+  // Ensure we have required imports
+  const requiredImports = [
+    "import { test, expect, APIRequestContext } from '@playwright/test';",
+    "import { allure } from 'allure-playwright';"
+  ];
+  
+  requiredImports.forEach(imp => {
+    const normalized = imp.replace(/\s+/g, ' ');
+    if (!seenImports.has(normalized)) {
+      imports.unshift(imp);
+      seenImports.add(normalized);
+    }
+  });
+  
+  // Combine imports at the top
+  const importSection = imports.join('\n') + '\n\n';
+  
   // Fix request context setup if using old pattern
   if (processedCode.includes('async ({ request })')) {
     processedCode = processedCode.replace(
@@ -2058,9 +3275,14 @@ function postProcessE2ETestCode(generatedCode, endpoints, resourceName, timeout)
   if (processedCode.includes('await request.')) {
     processedCode = processedCode.replace(
       /await request\./g,
-      'await requestContext.'
+      'await apiContext.'
     );
   }
+  
+  // Replace any testData with testDataRegistry before adding it
+  processedCode = processedCode.replace(/testData\./g, 'testData.');
+  processedCode = processedCode.replace(/const testData\s*[:=]/g, 'const testData: TestData =');
+  processedCode = processedCode.replace(/let testData\s*[:=]/g, 'let testData: TestData =');
   
   // Fix status code expectations to be more flexible
   processedCode = processedCode.replace(
@@ -2068,114 +3290,55 @@ function postProcessE2ETestCode(generatedCode, endpoints, resourceName, timeout)
     'expect([200, 201, 400, 404]).toContain(response.status())'
   );
   
-  // Only add test data management if it doesn't already exist
-  if (!processedCode.includes('// Test Data Management') && !processedCode.includes('const testDataRegistry') && !processedCode.includes('function generateValid')){
-    const dataManagementCode = `
-// Test Data Management
-interface TestResource {
-  id: string;
-  data: any;
-  cleanup?: () => Promise<void>;
-}
+  // Ensure proper setup - beforeAll should initialize apiContext and testData
+  // Fix beforeAll to use playwright fixture properly
+  if (!processedCode.includes('let apiContext: APIRequestContext')) {
+    const beforeAllFix = `
+let apiContext: APIRequestContext;
+let authToken = '';
+const testData: TestData = {};
 
-interface TestResponse {
-  method: string;
-  path: string;
-  status: number;
-  responseTime: number;
-  timestamp: string;
-}
-
-interface TestDataRegistry {
-  created: any;
-  updated: any;
-  ids: string[];
-  responses: TestResponse[];
-}
-
-const testDataRegistry: TestDataRegistry = {
-  created: {},
-  updated: {},
-  ids: [],
-  responses: []
-};
-
-const createdResources: TestResource[] = [];
-
-// Data Factory Functions
-function generateValid${resourceName}Data(): any {
-  return {
-    id: Date.now() + Math.random(),
-    name: \`Test ${resourceName} \${Date.now()}\`,
-    description: \`Generated test data for ${resourceName} at \${new Date().toISOString()}\`,
-    createdAt: new Date().toISOString(),
-    // Add more realistic fields based on resource type
-  };
-}
-
-function generateInvalid${resourceName}Data(): any {
-  return {
-    // Missing required fields or invalid data types
-    invalidField: null,
-    name: '', // Empty required field
-    description: 'x'.repeat(10000), // Exceeds length limit
-  };
-}
-
-function generateBoundary${resourceName}Data(): any {
-  return {
-    name: 'a', // Minimum length
-    description: 'x'.repeat(255), // Maximum length
-    numericField: Number.MAX_SAFE_INTEGER,
-    dateField: new Date('1900-01-01').toISOString(),
-  };
-}
-
-// Test Data Registry Functions
-function registerTestData(id: string, data: any): void {
-  testDataRegistry.created = data;
-  if (data && data.id) {
-    testDataRegistry.ids.push(data.id);
-  }
-  createdResources.push({ id, data });
-}
-
-function getTestData(id: string): any {
-  return testDataRegistry.created;
-}
-
-function clearTestDataRegistry(): void {
-  testDataRegistry.created = {};
-  testDataRegistry.updated = {};
-  testDataRegistry.ids = [];
-  testDataRegistry.responses = [];
-  createdResources.length = 0;
-}
-
-// Cleanup Functions
-async function cleanupTestData(request: any): Promise<void> {
-  console.log(\`Starting cleanup of \${createdResources.length} test resources...\`);
-  
-  // Cleanup in reverse order (LIFO) to handle dependencies
-  for (let i = createdResources.length - 1; i >= 0; i--) {
-    const resource = createdResources[i];
-    try {
-      const deleteResponse = await request.delete(\`/api/v1/${resourceName.toLowerCase()}/\${resource.id}\`);
-      if (deleteResponse.status() === 204 || deleteResponse.status() === 200) {
-        console.log(\`Successfully cleaned up ${resourceName} with ID: \${resource.id}\`);
-      }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.warn(\`Failed to cleanup ${resourceName} with ID: \${resource.id}\`, errorMessage);
+test.beforeAll(async ({ playwright }) => {
+  try {
+    authToken = process.env.API_TOKEN || process.env.BEARER_TOKEN || process.env.ACCESS_TOKEN || '';
+    if (!authToken && process.env.TOKEN_URL) {
+      const ctx = await playwright.request.newContext();
+      const tokenResponse = await ctx.post(process.env.TOKEN_URL, {
+        data: {
+          client_id: process.env.CLIENT_ID,
+          client_secret: process.env.CLIENT_SECRET,
+          username: process.env.USERNAME,
+          password: process.env.PASSWORD,
+          grant_type: 'password',
+          scope: process.env.SCOPE || 'openid'
+        }
+      });
+      expect(tokenResponse.status()).toBe(200);
+      const tokenJson = await tokenResponse.json();
+      authToken = tokenJson.access_token || '';
     }
+
+    apiContext = await playwright.request.newContext({
+      baseURL: process.env.BASE_URL || 'https://fakerestapi.azurewebsites.net',
+      extraHTTPHeaders: {
+        ...(authToken ? { Authorization: \`Bearer \${authToken}\` } : {}),
+        'Content-Type': 'application/json'
+      },
+      timeout: ${timeout}
+    });
+  } catch (error: any) {
+    throw new Error(\`Authentication setup failed: \${error.message || error}\`);
   }
-  
-  clearTestDataRegistry();
-  console.log('Test data cleanup completed.');
-}
+});
 `;
     
-    processedCode = dataManagementCode + processedCode;
+    // Insert beforeAll setup after imports but before any test blocks
+    const testBlockMatch = processedCode.search(/test\.(describe|beforeAll|beforeEach)/);
+    if (testBlockMatch > 0) {
+      processedCode = processedCode.slice(0, testBlockMatch) + beforeAllFix + '\n\n' + processedCode.slice(testBlockMatch);
+    } else {
+      processedCode = beforeAllFix + '\n\n' + processedCode;
+    }
   }
   
   // Add timeout if not present
@@ -2189,15 +3352,22 @@ async function cleanupTestData(request: any): Promise<void> {
   
   // Add comprehensive cleanup in afterEach
   if (!processedCode.includes('test.afterEach')) {
-    processedCode = processedCode.replace(
-      /test\.beforeEach\(async \(\) => \{[\s\S]*?\}\);/,
-      `$&
-
-  test.afterEach(async ({ request }) => {
-    // Cleanup test data after each test
-    await cleanupTestData(request);
-  });`
-    );
+    const afterEachCode = `
+test.afterEach(async () => {
+  if (testData.createdUserId) {
+    try {
+      await allure.step('Cleanup: Delete created resource', async () => {
+        const deleteResponse = await apiContext.delete(\`/user/\${testData.createdUserId}\`);
+        expect(deleteResponse.status()).toBeGreaterThanOrEqual(200);
+      });
+    } catch (error: any) {
+      console.warn(\`Cleanup failed for resource \${testData.createdUserId}: \${error.message || error}\`);
+    }
+  }
+});`;
+    
+    // Insert afterEach before the closing brace of test.describe
+    processedCode = processedCode.replace(/(\n\}\s*$)/, afterEachCode + '$1');
   }
   
   // Add resource tag
@@ -2222,32 +3392,27 @@ async function cleanupTestData(request: any): Promise<void> {
     return match.replace(/\n/g, ' ').replace(/\s+/g, ' ');
   });
   
-  // Replace testData references with testDataRegistry to match our data management structure
-  processedCode = processedCode.replace(/testData\./g, 'testDataRegistry.');
-  processedCode = processedCode.replace(/const testData = /g, 'const testDataRegistry: TestDataRegistry = ');
-  processedCode = processedCode.replace(/let testData = /g, 'let testDataRegistry: TestDataRegistry = ');
+  // Replace testData references with testData to match our data management structure
+  // Note: We'll use testData (simpler) instead of testDataRegistry for consistency
+  processedCode = processedCode.replace(/testDataRegistry\./g, 'testData.');
+  processedCode = processedCode.replace(/const testDataRegistry\s*[:=]/g, 'const testData: TestData =');
+  processedCode = processedCode.replace(/let testDataRegistry\s*[:=]/g, 'let testData: TestData =');
   
-  // Add TypeScript interfaces if not already present
-  if (!processedCode.includes('interface TestResponse') && !processedCode.includes('interface TestDataRegistry')) {
-    const interfaceDefinitions = `
-interface TestResponse {
-  method: string;
-  path: string;
-  status: number;
-  responseTime: number;
-  timestamp: string;
-}
-
-interface TestDataRegistry {
-  created: any;
-  updated: any;
-  ids: any[];
-  responses: TestResponse[];
-}
-`;
-    
-    // Insert interfaces after the last import statement
-    processedCode = processedCode.replace(/(import.*?;\s*\n)(\s*\n)?/, `$1${interfaceDefinitions}\n`);
+  // Ensure testData interface exists
+  if (!processedCode.includes('interface TestData')) {
+    const testDataInterface = `
+interface TestData {
+  createdUserId?: number;
+  originalUser?: any;
+  updatedUser?: any;
+}`;
+    // Insert interface after imports but before code
+    const firstCodeLine = processedCode.search(/(const|let|interface|type|test\.|function)/);
+    if (firstCodeLine > 0) {
+      processedCode = processedCode.slice(0, firstCodeLine) + testDataInterface + '\n\n' + processedCode.slice(firstCodeLine);
+    } else {
+      processedCode = importSection + testDataInterface + '\n\n' + processedCode;
+    }
   }
   
   // Only add error handling if it doesn't already exist
@@ -2296,6 +3461,26 @@ async function retryOperation<T>(operation: () => Promise<T>, maxRetries = 3, de
       `// Test Data Management${errorHandlingCode}`
     );
   }
+  
+  // Reassemble code with imports at the top
+  // Clean up any leading whitespace/newlines
+  processedCode = processedCode.trim();
+  
+  // Ensure imports are at the very top, before any code
+  if (!processedCode.startsWith('import ')) {
+    processedCode = importSection + processedCode;
+  } else {
+    // Replace existing imports with our deduplicated ones
+    const codeWithoutImports = processedCode.replace(/^import\s+[^;]+from\s+['"][^'"]+['"];?\s*\n/gm, '');
+    processedCode = importSection + codeWithoutImports.trim();
+  }
+  
+  // Ensure proper structure: imports, then interfaces, then code
+  // Remove any test.describe/test blocks that appear before imports
+  processedCode = processedCode.replace(/^(test\.describe|test\(')[\s\S]*?^import/gm, 'import');
+  
+  // Fix apiContext variable name if it's using requestContext
+  processedCode = processedCode.replace(/requestContext/g, 'apiContext');
   
   return processedCode;
 }

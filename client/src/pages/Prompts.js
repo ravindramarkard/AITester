@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { FiPlus, FiEdit3, FiTrash2, FiEye, FiPlay, FiGrid, FiList, FiCode, FiZap, FiX, FiRefreshCw } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import api from '../config/axios';
 import CreatePromptModal from '../components/CreatePromptModal';
 import PromptDetailsModal from '../components/PromptDetailsModal';
 import ContinueExecutionModal from '../components/ContinueExecutionModal';
+import ExecutionModeModal from '../components/ExecutionModeModal';
+import { RTLSpacing, RTLFlex, useRTLSpacing } from '../components/RTLSpacing';
 
 // Simple wrapper to reuse CreatePromptModal for editing/copying by seeding initial values
 function EditPromptModal({ initial, onClose, onSubmit }) {
@@ -31,6 +34,10 @@ const Header = styled.div`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 30px;
+
+  [dir="rtl"] & {
+    flex-direction: row-reverse;
+  }
 `;
 
 const Title = styled.h1`
@@ -45,12 +52,21 @@ const Title = styled.h1`
 const TitleIcon = styled.span`
   margin-right: 12px;
   color: #3498db;
+
+  [dir="rtl"] & {
+    margin-right: 0;
+    margin-left: 12px;
+  }
 `;
 
 const HeaderActions = styled.div`
   display: flex;
   gap: 12px;
   align-items: center;
+
+  [dir="rtl"] & {
+    flex-direction: row-reverse;
+  }
 `;
 
 const ViewToggle = styled.div`
@@ -521,6 +537,8 @@ const LoadingSpinner = styled.div`
 `;
 
 const Prompts = () => {
+  const { t } = useTranslation();
+  const { isRTL, spacing } = useRTLSpacing();
   const [prompts, setPrompts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -538,6 +556,9 @@ const Prompts = () => {
   const [showEnvModal, setShowEnvModal] = useState(false);
   const [selectedEnv, setSelectedEnv] = useState(null);
   const [pendingPromptId, setPendingPromptId] = useState(null);
+  const [showExecutionModeModal, setShowExecutionModeModal] = useState(false);
+  const [executionModePrompt, setExecutionModePrompt] = useState(null);
+  const [selectedExecutionMode, setSelectedExecutionMode] = useState('spec-first');
 
   useEffect(() => {
     fetchPrompts();
@@ -637,21 +658,26 @@ const Prompts = () => {
     setShowDetailsModal(true);
   };
 
-  const handleGenerateTest = async (promptId, selectedEnvironment = null) => {
+  const handleGenerateTest = async (promptId, selectedEnvironment = null, executionMode = 'spec-first') => {
     try {
       setGeneratingCode(true);
       const prompt = prompts.find(p => p._id === promptId);
       
       let response;
       if (selectedEnvironment) {
-        // Use generate-llm-playwright endpoint for LLM generation
-        response = await api.post('/code-generation/generate-llm-playwright', {
+        // Choose endpoint based on execution mode
+        const endpoint = executionMode === 'browser-action' 
+          ? '/code-generation/generate-llm-playwright-realtime'
+          : '/code-generation/generate-llm-playwright';
+          
+        response = await api.post(endpoint, {
           promptContent: prompt?.promptContent || prompt?.content || '',
           testName: prompt?.title,
           testType: prompt?.testType || 'UI Test',
           environment: selectedEnvironment, // Pass full environment object
           parsedSteps: prompt?.metadata?.parsedSteps || [], // Send parsed steps for reference
-          baseUrl: prompt?.baseUrl // Pass the prompt's baseUrl to take priority
+          baseUrl: prompt?.baseUrl, // Pass the prompt's baseUrl to take priority
+          executionMode: executionMode // Pass execution mode
         });
       } else {
         // Use template-based generation (no LLM)
@@ -701,14 +727,15 @@ const Prompts = () => {
   };
 
   const handleGenerateClick = (promptId) => {
-    if (environments.length === 0) {
-      // No environments available, generate without LLM
-      handleGenerateTest(promptId, null);
-    } else {
-      // Show environment selection modal
-      setPendingPromptId(promptId);
-      setShowEnvModal(true);
+    const prompt = prompts.find(p => p._id === promptId);
+    if (!prompt) {
+      toast.error('Prompt not found');
+      return;
     }
+
+    // Show execution mode selection modal first
+    setExecutionModePrompt(prompt);
+    setShowExecutionModeModal(true);
   };
 
   const checkSessionExists = async () => {
@@ -787,10 +814,11 @@ const Prompts = () => {
 
   const handleEnvConfirm = () => {
     if (pendingPromptId) {
-      handleGenerateTest(pendingPromptId, selectedEnv);
+      handleGenerateTest(pendingPromptId, selectedEnv, selectedExecutionMode);
       setShowEnvModal(false);
       setSelectedEnv(null);
       setPendingPromptId(null);
+      setSelectedExecutionMode('spec-first'); // Reset execution mode
     }
   };
 
@@ -798,6 +826,37 @@ const Prompts = () => {
     setShowEnvModal(false);
     setSelectedEnv(null);
     setPendingPromptId(null);
+  };
+
+  const handleExecutionModeSelect = (executionMode) => {
+    if (!executionModePrompt) return;
+
+    // Store the selected execution mode
+    setSelectedExecutionMode(executionMode);
+
+    if (executionMode === 'browser-action') {
+      // Browser action mode - show environment selection first
+      if (environments.length === 0) {
+        toast.error('No LLM environments available for browser action mode');
+        return;
+      }
+      setPendingPromptId(executionModePrompt._id);
+      setShowEnvModal(true);
+    } else if (executionMode === 'spec-first') {
+      // Spec-first mode - proceed with traditional generation
+      if (environments.length === 0) {
+        // No environments available, generate without LLM
+        handleGenerateTest(executionModePrompt._id, null, executionMode);
+      } else {
+        // Show environment selection modal
+        setPendingPromptId(executionModePrompt._id);
+        setShowEnvModal(true);
+      }
+    }
+
+    // Close execution mode modal
+    setShowExecutionModeModal(false);
+    setExecutionModePrompt(null);
   };
 
   const filteredPrompts = prompts.filter(prompt =>
@@ -823,12 +882,12 @@ const Prompts = () => {
           <TitleIcon>
             <FiEdit3 />
           </TitleIcon>
-          Prompts
+          {t('prompts.title')}
         </Title>
         <HeaderActions>
           <SearchInput
             type="text"
-            placeholder="Search prompts..."
+            placeholder={t('common.search') + ' ' + t('prompts.title').toLowerCase() + '...'}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -853,7 +912,7 @@ const Prompts = () => {
             onClick={() => setShowCreateModal(true)}
           >
             <FiPlus />
-            Create New Prompt
+            {t('prompts.createNew')}
           </Button>
         </HeaderActions>
       </Header>
@@ -863,9 +922,9 @@ const Prompts = () => {
           <EmptyIcon>
             <FiEdit3 />
           </EmptyIcon>
-          <EmptyTitle>No prompts found</EmptyTitle>
+          <EmptyTitle>{t('prompts.noPrompts')}</EmptyTitle>
           <EmptyDescription>
-            {searchTerm ? 'Try adjusting your search terms' : 'Create your first prompt to get started'}
+            {searchTerm ? t('common.tryAdjustingSearch') : t('prompts.createFirst')}
           </EmptyDescription>
         </EmptyState>
       ) : viewMode === 'list' ? (
@@ -1122,6 +1181,19 @@ const Prompts = () => {
           }}
           prompt={selectedPrompt}
           onExecute={handleContinueExecutionFromModal}
+        />
+      )}
+
+      {/* Execution Mode Modal */}
+      {showExecutionModeModal && executionModePrompt && (
+        <ExecutionModeModal
+          isOpen={showExecutionModeModal}
+          onClose={() => {
+            setShowExecutionModeModal(false);
+            setExecutionModePrompt(null);
+          }}
+          prompt={executionModePrompt}
+          onExecute={handleExecutionModeSelect}
         />
       )}
 

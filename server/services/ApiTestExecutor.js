@@ -221,13 +221,55 @@ class ApiTestExecutor {
         env.API_PASSWORD = environmentConfig.password;
       }
 
+      // If a static token is present in authorization config, use it
+      if (environmentConfig.authorization?.token) {
+        env.API_TOKEN = environmentConfig.authorization.token;
+        env.BEARER_TOKEN = env.BEARER_TOKEN || environmentConfig.authorization.token;
+        env.ACCESS_TOKEN = env.ACCESS_TOKEN || environmentConfig.authorization.token;
+        console.log('✅ Using static token from environment authorization config');
+      }
+
       // Fetch OAuth token from environment authorization configuration
       if (environmentConfig.authorization?.enabled && environmentConfig.authorization?.type === 'oauth2') {
+        // Expose OAuth settings to child process (both UPPER_CASE and camelCase)
+        const auth = environmentConfig.authorization;
+        if (auth.tokenUrl) {
+          env.TOKEN_URL = auth.tokenUrl;
+          env.tokenUrl = auth.tokenUrl;
+          env.AUTH_URL = env.AUTH_URL || auth.tokenUrl;
+        }
+        if (auth.clientId) {
+          env.CLIENT_ID = auth.clientId;
+          env.clientId = auth.clientId;
+        }
+        if (auth.clientSecret) {
+          env.CLIENT_SECRET = auth.clientSecret;
+          env.clientSecret = auth.clientSecret;
+        }
+        if (auth.username) {
+          env.API_USERNAME = auth.username;
+          env.USERNAME = env.USERNAME || auth.username;
+          env.username = auth.username;
+        }
+        if (auth.password) {
+          env.API_PASSWORD = auth.password;
+          env.PASSWORD = env.PASSWORD || auth.password;
+          env.password = auth.password;
+        }
+        if (auth.scope) {
+          env.SCOPE = auth.scope;
+        }
+        if (auth.grantType) {
+          env.GRANT_TYPE = auth.grantType;
+        }
+
         try {
           console.log('🔐 Fetching OAuth token from environment authorization config...');
           const token = await this.fetchOAuthToken(environmentConfig.authorization);
           if (token) {
             env.API_TOKEN = token;
+            env.BEARER_TOKEN = env.BEARER_TOKEN || token;
+            env.ACCESS_TOKEN = env.ACCESS_TOKEN || token;
             console.log('✅ OAuth token fetched and set as API_TOKEN');
           }
         } catch (error) {
@@ -252,8 +294,13 @@ class ApiTestExecutor {
       API_TIMEOUT: env.API_TIMEOUT,
       TEST_ENVIRONMENT: env.TEST_ENVIRONMENT,
       ENVIRONMENT_ID: env.ENVIRONMENT_ID,
-      OAUTH_TOKEN: env.OAUTH_TOKEN ? '***REDACTED***' : 'Not set',
-      token: env.token ? '***REDACTED***' : 'Not set'
+      API_TOKEN: env.API_TOKEN ? '***REDACTED***' : 'Not set',
+      BEARER_TOKEN: env.BEARER_TOKEN ? '***REDACTED***' : 'Not set',
+      ACCESS_TOKEN: env.ACCESS_TOKEN ? '***REDACTED***' : 'Not set',
+      TOKEN_URL: env.TOKEN_URL,
+      CLIENT_ID: env.CLIENT_ID,
+      USERNAME: env.USERNAME,
+      SCOPE: env.SCOPE
     });
 
     return env;

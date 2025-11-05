@@ -29,7 +29,6 @@ A comprehensive test automation framework that combines traditional testing with
 
 ### Backend
 - **Node.js** with Express.js
-- **MongoDB** with Mongoose ODM
 - **Playwright** for test execution
 - **Allure** for test reporting
 - **OpenAI/Claude** for AI integration
@@ -45,7 +44,6 @@ A comprehensive test automation framework that combines traditional testing with
 
 ### Prerequisites
 - Node.js (v16 or higher)
-- MongoDB (v4.4 or higher)
 - npm or yarn
 
 ### Setup
@@ -79,15 +77,8 @@ A comprehensive test automation framework that combines traditional testing with
    nano server/.env
    ```
 
-4. **Database Setup**
-   ```bash
-   # Start MongoDB (if not already running)
-   mongod
-   
-   # The application will create the database and collections automatically
-   ```
 
-5. **Start the application**
+4. **Start the application**
    ```bash
    # From the root directory
    npm run dev

@@ -95,5 +95,47 @@
       "skipped": 0,
       "total": 4
     }
+  },
+  {
+    "id": "suite-1764325071018-xwc7vw4oo",
+    "name": "all test cases",
+    "description": "hhhd",
+    "testType": "UI",
+    "testCases": [
+      {
+        "id": "ui-test-case-create-a-case-without-collaborators-assigned",
+        "name": "test case create a case without collaborators assigned",
+        "tags": [
+          "ui"
+        ],
+        "type": "UI",
+        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/test-case-create-a-case-without-collaborators-assigned.spec.ts",
+        "created": "2025-11-28T10:07:52.106Z",
+        "modified": "2025-11-28T10:07:52.106Z",
+        "isReference": true
+      },
+      {
+        "id": "ui-go-to-profile1",
+        "name": "go to profile1",
+        "tags": [
+          "ui"
+        ],
+        "type": "UI",
+        "filePath": "projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/go-to-profile1.spec.ts",
+        "created": "2025-11-28T10:12:21.162Z",
+        "modified": "2025-11-28T10:12:21.162Z",
+        "isReference": true
+      }
+    ],
+    "createdAt": "2025-11-28T10:17:51.018Z",
+    "status": "ready",
+    "totalTests": 2,
+    "lastRun": null,
+    "results": {
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "total": 2
+    }
   }
 ]

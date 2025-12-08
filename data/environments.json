@@ -79,11 +79,11 @@
     },
     "llmConfiguration": {
       "enabled": true,
-      "provider": "local",
-      "apiKey": "",
-      "model": "llama3.1:8b",
-      "baseUrl": "http://localhost:11434/",
-      "llmProvider": "Ollama"
+      "provider": "openai",
+      "apiKey": "vk-ec09c86654074b91821a4afc1e232feb",
+      "model": "glm-4.6",
+      "baseUrl": "https://vitruvian.presight.ai/api/v1",
+      "llmProvider": "openai"
     },
     "authorization": {
       "enabled": true,
@@ -102,7 +102,7 @@
       "grantType": "password"
     },
     "createdAt": "2025-09-09T19:36:10.270Z",
-    "updatedAt": "2025-10-16T11:07:26.147Z",
+    "updatedAt": "2025-11-28T12:45:26.177Z",
     "status": "active"
   },
   {
@@ -344,11 +344,11 @@
     },
     "llmConfiguration": {
       "enabled": true,
-      "provider": "local",
-      "apiKey": "",
-      "model": "google/gemma-3-12b",
-      "baseUrl": "http://localhost:1234/",
-      "llmProvider": "google/gemma-3-12b"
+      "provider": "openai",
+      "apiKey": "vk-ec09c86654074b91821a4afc1e232feb",
+      "model": "glm-4.6",
+      "baseUrl": "https://vitruvian.presight.ai/api/v1",
+      "llmProvider": " LLM"
     },
     "authorization": {
       "enabled": false,
@@ -367,7 +367,7 @@
       "grantType": "password"
     },
     "createdAt": "2025-10-09T05:02:35.690Z",
-    "updatedAt": "2025-10-21T18:42:40.021Z",
+    "updatedAt": "2025-11-28T12:44:12.646Z",
     "status": "active"
   }
 ]

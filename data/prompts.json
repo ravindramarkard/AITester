@@ -1761,7 +1761,7 @@
     "_id": "416aa238-7683-4e3e-95d6-13f096b58b4d",
     "title": "Test Case  : Create a case without Collaborators assigned ",
     "description": "Test Case  : Create a case without Collaborators assigned ",
-    "promptContent": "1.Navigate to given url\n2.Type username piyush.safaya into Username placeholder field\n3.Type password piyush1234 into Password placeholder field\n4.Click on Log in button\n5. Wait for page load \"cases\"\n6. Click on Create New Case button\n7. Type test case Auto-Sept2 into enter case name placeholder\n8. Type Description \"Automation Desc\" into enter description placeholder\n9. Click on Save Button\n10. Verify created case available",
+    "promptContent": "1.Navigate to given url\n2.Type username piyush.safaya into Username placeholder field\n3.Type password piyush1234 into Password placeholder field\n4.Click on Log in button\n5. wait for spinner disappear \n6. Wait for page load \"cases\"\n7. Click on Create New Case button\n8. Type test case Auto-Sept2 into enter case name placeholder\n9. Type Description \"Automation Desc\" into enter description placeholder\n10. Click on Save Button\n11. Verify created case available",
     "testType": "UI Test",
     "tags": [
       "smoke"
@@ -1815,7 +1815,16 @@
         },
         {
           "stepNumber": 5,
-          "originalText": "5. Wait for page load \"cases\"",
+          "originalText": "5. wait for spinner disappear",
+          "action": "wait",
+          "target": "wait for spinner disappear",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 6,
+          "originalText": "6. Wait for page load \"cases\"",
           "action": "wait",
           "target": "cases",
           "value": null,
@@ -1823,8 +1832,8 @@
           "waitTime": null
         },
         {
-          "stepNumber": 6,
-          "originalText": "6. Click on Create New Case button",
+          "stepNumber": 7,
+          "originalText": "7. Click on Create New Case button",
           "action": "click",
           "target": "button",
           "value": null,
@@ -1832,8 +1841,8 @@
           "waitTime": null
         },
         {
-          "stepNumber": 7,
-          "originalText": "7. Type test case Auto-Sept2 into enter case name placeholder",
+          "stepNumber": 8,
+          "originalText": "8. Type test case Auto-Sept2 into enter case name placeholder",
           "action": "fill",
           "target": "test case Auto-Sept2 into case name placeholder",
           "value": null,
@@ -1841,8 +1850,8 @@
           "waitTime": null
         },
         {
-          "stepNumber": 8,
-          "originalText": "8. Type Description \"Automation Desc\" into enter description placeholder",
+          "stepNumber": 9,
+          "originalText": "9. Type Description \"Automation Desc\" into enter description placeholder",
           "action": "fill",
           "target": "Automation Desc",
           "value": null,
@@ -1850,8 +1859,8 @@
           "waitTime": null
         },
         {
-          "stepNumber": 9,
-          "originalText": "9. Click on Save Button",
+          "stepNumber": 10,
+          "originalText": "10. Click on Save Button",
           "action": "click",
           "target": "button",
           "value": null,
@@ -1859,25 +1868,25 @@
           "waitTime": null
         },
         {
-          "stepNumber": 10,
-          "originalText": "10. Verify created case available",
+          "stepNumber": 11,
+          "originalText": "11. Verify created case available",
           "action": "assert",
-          "target": "10. created case available",
+          "target": "11. created case available",
           "value": null,
           "assertion": "created case available",
           "waitTime": null
         }
       ],
-      "timestamp": "2025-11-03T12:24:32.817Z"
+      "timestamp": "2025-11-25T14:14:33.276Z"
     },
     "createdAt": "2025-09-22T08:45:44.982Z",
-    "updatedAt": "2025-11-03T12:24:32.818Z"
+    "updatedAt": "2025-11-25T14:14:33.277Z"
   },
   {
     "_id": "861bb60f-38af-4c4d-8d1b-f3f1db4d62d1",
     "title": "Test Case  : Create a case with Collaborators assigned ",
     "description": "Test Case  : Create a case with Collaborators assigned ",
-    "promptContent": "Test Case  : Create a case with Collaborators assigned \n1. Navigate to given url\n2. Type username piyush.safaya into Username placeholder field\n3. Type password piyush1234 into Password placeholder field\n4. Click on Log in button\n5. Wait for page load \"cases\"\n6. Click on Create New Case button\n7. Type test case Auto-Sept2.1 into enter case name placeholder\n8. Type Description \"Automation Desc\" into enter description placeholder\n 9. Click on Dropdown \n10. Fill ravindra.markard\n11. Click on Add Button\n12. Click on Save button\n13. Verify created case available in list",
+    "promptContent": "1.Navigate to given url\n2.Type username piyush.safaya into Username placeholder field\n3.Type password piyush1234 into Password placeholder field\n4.Click on Log in button\n5. wait for spinner disappear \n6. Wait for page load \"cases\"\n7. Click on Create New Case button\n8. Type test case Auto-Sept2.1 into enter case name placeholder\n9 Type Description \"Automation Desc\" into enter description placeholder\n 10. Click on contains Type to search for user placeholder\n11. Fill ravindra.markard\n12. Click on Add Button\n13. Click on Save button\n14. Verify created case available in list",
     "testType": "UI Test",
     "tags": [
       "smoke"
@@ -1895,25 +1904,25 @@
       "parsedSteps": [
         {
           "stepNumber": 1,
-          "originalText": "Test Case  : Create a case with Collaborators assigned",
-          "action": "unknown",
-          "target": "Test Case Create case with Collaborators assigned",
+          "originalText": "1.Navigate to given url",
+          "action": "navigate",
+          "target": "1.Navigate given url",
           "value": null,
           "assertion": null,
           "waitTime": null
         },
         {
           "stepNumber": 2,
-          "originalText": "1. Navigate to given url",
-          "action": "navigate",
-          "target": "Navigate given url",
+          "originalText": "2.Type username piyush.safaya into Username placeholder field",
+          "action": "fill",
+          "target": "input",
           "value": null,
           "assertion": null,
           "waitTime": null
         },
         {
           "stepNumber": 3,
-          "originalText": "2. Type username piyush.safaya into Username placeholder field",
+          "originalText": "3.Type password piyush1234 into Password placeholder field",
           "action": "fill",
           "target": "input",
           "value": null,
@@ -1922,16 +1931,7 @@
         },
         {
           "stepNumber": 4,
-          "originalText": "3. Type password piyush1234 into Password placeholder field",
-          "action": "fill",
-          "target": "input",
-          "value": null,
-          "assertion": null,
-          "waitTime": null
-        },
-        {
-          "stepNumber": 5,
-          "originalText": "4. Click on Log in button",
+          "originalText": "4.Click on Log in button",
           "action": "click",
           "target": "button",
           "value": null,
@@ -1939,8 +1939,17 @@
           "waitTime": null
         },
         {
+          "stepNumber": 5,
+          "originalText": "5. wait for spinner disappear",
+          "action": "wait",
+          "target": "wait for spinner disappear",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
           "stepNumber": 6,
-          "originalText": "5. Wait for page load \"cases\"",
+          "originalText": "6. Wait for page load \"cases\"",
           "action": "wait",
           "target": "cases",
           "value": null,
@@ -1949,7 +1958,7 @@
         },
         {
           "stepNumber": 7,
-          "originalText": "6. Click on Create New Case button",
+          "originalText": "7. Click on Create New Case button",
           "action": "click",
           "target": "button",
           "value": null,
@@ -1958,7 +1967,7 @@
         },
         {
           "stepNumber": 8,
-          "originalText": "7. Type test case Auto-Sept2.1 into enter case name placeholder",
+          "originalText": "8. Type test case Auto-Sept2.1 into enter case name placeholder",
           "action": "fill",
           "target": "test case Auto-Sept2.1 into case name placeholder",
           "value": null,
@@ -1967,7 +1976,7 @@
         },
         {
           "stepNumber": 9,
-          "originalText": "8. Type Description \"Automation Desc\" into enter description placeholder",
+          "originalText": "9 Type Description \"Automation Desc\" into enter description placeholder",
           "action": "fill",
           "target": "Automation Desc",
           "value": null,
@@ -1976,25 +1985,25 @@
         },
         {
           "stepNumber": 10,
-          "originalText": "9. Click on Dropdown",
+          "originalText": "10. Click on contains Type to search for user placeholder",
           "action": "click",
-          "target": "dropdown",
+          "target": "input",
           "value": null,
           "assertion": null,
           "waitTime": null
         },
         {
           "stepNumber": 11,
-          "originalText": "10. Fill ravindra.markard",
+          "originalText": "11. Fill ravindra.markard",
           "action": "fill",
-          "target": "10. ravindra.markard",
+          "target": "11. ravindra.markard",
           "value": null,
           "assertion": null,
           "waitTime": null
         },
         {
           "stepNumber": 12,
-          "originalText": "11. Click on Add Button",
+          "originalText": "12. Click on Add Button",
           "action": "click",
           "target": "button",
           "value": null,
@@ -2003,7 +2012,7 @@
         },
         {
           "stepNumber": 13,
-          "originalText": "12. Click on Save button",
+          "originalText": "13. Click on Save button",
           "action": "click",
           "target": "button",
           "value": null,
@@ -2012,7 +2021,7 @@
         },
         {
           "stepNumber": 14,
-          "originalText": "13. Verify created case available in list",
+          "originalText": "14. Verify created case available in list",
           "action": "assert",
           "target": "dropdown",
           "value": null,
@@ -2020,10 +2029,10 @@
           "waitTime": null
         }
       ],
-      "timestamp": "2025-09-25T05:21:36.609Z"
+      "timestamp": "2025-11-25T15:41:51.228Z"
     },
     "createdAt": "2025-09-22T12:56:48.063Z",
-    "updatedAt": "2025-11-03T12:28:47.654Z"
+    "updatedAt": "2025-11-25T15:43:32.574Z"
   },
   {
     "_id": "43729306-9069-4734-a09e-683ec12f8d45",
@@ -2128,7 +2137,7 @@
     "_id": "406fb027-8731-4cd4-9f8b-8d7e455f3f47",
     "title": "Test Case  : Create a case and upload a file",
     "description": "Test Case  : Create a case  and upload a file",
-    "promptContent": "1.Navigate to given url\n2.Type username piyush.safaya into Username placeholder field\n3.Type password piyush1234 into Password placeholder field\n4.Click on Log in button\n5. Wait for page load \"cases\"\n6. Click on Create New Case button\n7. Type test case Auto-Sept2 into enter case name placeholder\n8. Type Description \"Automation Desc\" into enter description placeholder\n9. Click on Save Button\n10. Verify created case available in list\n11. Double click on has text with  “Auto-Sept2” and it second position\n12. Double click on has text with  “Class” \n13. Click on Upload button\n14. Upload a file from : /Users/ravindra.markard/Downloads/flight.jpeg\n15. Click on upload button",
+    "promptContent": "1.Navigate to given url\n2.Type username piyush.safaya into Username placeholder field\n3.Type password piyush1234 into Password placeholder field\n4.Click on Log in button\n5. Wait for page load \"cases\"\n6. Click on Create New Case button\n7. Type test case Auto-Sept2 into enter case name placeholder\n8. Type Description \"Automation Desc\" into enter description placeholder\n9. Click on Save Button\n10. Verify created case available in list\n11. Double click on has text with  “Auto-Sept2” and it second position\n",
     "testType": "UI Test",
     "tags": [
       "smoke"
@@ -2242,54 +2251,18 @@
           "value": null,
           "assertion": null,
           "waitTime": null
-        },
-        {
-          "stepNumber": 12,
-          "originalText": "12. Double click on has text with  “Class”",
-          "action": "click",
-          "target": "text",
-          "value": null,
-          "assertion": null,
-          "waitTime": null
-        },
-        {
-          "stepNumber": 13,
-          "originalText": "13. Click on Upload button",
-          "action": "click",
-          "target": "button",
-          "value": null,
-          "assertion": null,
-          "waitTime": null
-        },
-        {
-          "stepNumber": 14,
-          "originalText": "14. Upload a file from : /Users/ravindra.markard/Downloads/flight.jpeg",
-          "action": "upload",
-          "target": "14. Upload file from /Users/ravindra.markard/Downloads/flight.jpeg",
-          "value": null,
-          "assertion": null,
-          "waitTime": null
-        },
-        {
-          "stepNumber": 15,
-          "originalText": "15. Click on upload button",
-          "action": "click",
-          "target": "button",
-          "value": null,
-          "assertion": null,
-          "waitTime": null
         }
       ],
-      "timestamp": "2025-09-29T07:00:46.615Z"
+      "timestamp": "2025-11-24T11:15:53.940Z"
     },
     "createdAt": "2025-09-25T05:34:27.068Z",
-    "updatedAt": "2025-09-29T07:00:46.616Z"
+    "updatedAt": "2025-11-24T11:15:53.941Z"
   },
   {
     "_id": "1ce7ddd9-16c8-46a1-9259-17d629c5c8a0",
     "title": "Default Case",
     "description": "Default Case",
-    "promptContent": "1.Navigate to given url\n2.Type username piyush.safaya into Username placeholder field\n3.Type password piyush1234 into Password placeholder field\n4.Click on Log in button\n5. Wait for page load \"cases\"\n7. Double click on  full match text \"Default Case\" it is located first position",
+    "promptContent": "1.Navigate to given url\n2.Type username piyush.safaya into Username placeholder field\n3.Type password piyush1234 into Password placeholder field\n4.Click on Log in button\n5. wait for spinner get invisible\n6. Wait for page load \"cases\"\n7. Verify \"Default Case\" is visible\n8. Click on  full match text \"Default Case\" it is located first position",
     "testType": "UI Test",
     "tags": [
       "smoke"
@@ -2343,7 +2316,16 @@
         },
         {
           "stepNumber": 5,
-          "originalText": "5. Wait for page load \"cases\"",
+          "originalText": "5. wait for spinner get invisible",
+          "action": "wait",
+          "target": "wait for spinner get invisible",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 6,
+          "originalText": "6. Wait for page load \"cases\"",
           "action": "wait",
           "target": "cases",
           "value": null,
@@ -2351,8 +2333,17 @@
           "waitTime": null
         },
         {
-          "stepNumber": 6,
-          "originalText": "7. Double click on  full match text \"Default Case\" it is located first position",
+          "stepNumber": 7,
+          "originalText": "7. Verify \"Default Case\" is visible",
+          "action": "assert",
+          "target": "Default Case",
+          "value": null,
+          "assertion": "\"Default Case\" is visible",
+          "waitTime": null
+        },
+        {
+          "stepNumber": 8,
+          "originalText": "8. Click on  full match text \"Default Case\" it is located first position",
           "action": "click",
           "target": "[data-testid=\"Default Case\"]",
           "value": null,
@@ -2360,20 +2351,20 @@
           "waitTime": null
         }
       ],
-      "timestamp": "2025-09-30T05:18:41.583Z"
+      "timestamp": "2025-11-24T12:15:31.447Z"
     },
     "createdAt": "2025-09-29T08:35:33.620Z",
-    "updatedAt": "2025-10-31T10:49:16.817Z"
+    "updatedAt": "2025-11-27T13:35:16.866Z"
   },
   {
     "_id": "eda1984c-a383-464d-ad3f-c9aae8dc18ed",
-    "title": "Submit the form",
-    "description": "submit the form",
-    "promptContent": "Navigate to url\nEnter all details using faker\nSelect gender male\nfrom calendar Select next day and press tab \nSubmit the form",
+    "title": "Buzz TC",
+    "description": "Post the message",
+    "promptContent": "Navigate to Provided Url\nUse credentials for login provided on login screen\nValidate once user logged in\nGo left sidebar click and search for  Buzz\nClick on Buzz from the list\nClick on Placeholder \"What's on your mind?\"\nfill \"Ai testing\" and submit\nValidate successfully message\nand logout the app ",
     "testType": "UI Test",
     "tags": [],
     "additionalContext": "",
-    "baseUrl": "https://formy-project.herokuapp.com/form",
+    "baseUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/auth/login",
     "additionalInformation": "",
     "projectId": "default-project",
     "modelId": "default-model",
@@ -2385,43 +2376,79 @@
       "parsedSteps": [
         {
           "stepNumber": 1,
-          "originalText": "Navigate to url",
+          "originalText": "Navigate to Provided Url",
           "action": "navigate",
-          "target": "Navigate url",
+          "target": "Navigate Provided Url",
           "value": null,
           "assertion": null,
           "waitTime": null
         },
         {
           "stepNumber": 2,
-          "originalText": "Enter all details using faker",
-          "action": "fill",
-          "target": "all details using faker",
+          "originalText": "Use credentials for login provided on login screen",
+          "action": "unknown",
+          "target": "button",
           "value": null,
           "assertion": null,
           "waitTime": null
         },
         {
           "stepNumber": 3,
-          "originalText": "Select gender male",
-          "action": "click",
-          "target": "dropdown",
+          "originalText": "Validate once user logged in",
+          "action": "assert",
+          "target": "once user logged",
           "value": null,
-          "assertion": null,
+          "assertion": "once user logged in",
           "waitTime": null
         },
         {
           "stepNumber": 4,
-          "originalText": "from calendar Select next day and press tab",
+          "originalText": "Go left sidebar click and search for  Buzz",
           "action": "click",
-          "target": "dropdown",
+          "target": "input",
           "value": null,
           "assertion": null,
           "waitTime": null
         },
         {
           "stepNumber": 5,
-          "originalText": "Submit the form",
+          "originalText": "Click on Buzz from the list",
+          "action": "click",
+          "target": "dropdown",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 6,
+          "originalText": "Click on Placeholder \"What's on your mind?\"",
+          "action": "click",
+          "target": "What",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 7,
+          "originalText": "fill \"Ai testing\" and submit",
+          "action": "fill",
+          "target": "button",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 8,
+          "originalText": "Validate successfully message",
+          "action": "assert",
+          "target": "successfully message",
+          "value": null,
+          "assertion": "successfully message",
+          "waitTime": null
+        },
+        {
+          "stepNumber": 9,
+          "originalText": "and logout the app",
           "action": "unknown",
           "target": "button",
           "value": null,
@@ -2429,10 +2456,10 @@
           "waitTime": null
         }
       ],
-      "timestamp": "2025-10-08T22:03:32.858Z"
+      "timestamp": "2025-11-27T14:38:36.419Z"
     },
     "createdAt": "2025-10-08T14:50:12.669Z",
-    "updatedAt": "2025-10-08T22:03:32.860Z"
+    "updatedAt": "2025-11-27T14:38:36.420Z"
   },
   {
     "_id": "538ff6dd-1069-4d98-9c6b-0645b1172953",
@@ -2585,146 +2612,6 @@
     "updatedAt": "2025-10-21T18:50:46.108Z"
   },
   {
-    "_id": "c1ad4680-7a46-46b0-aef5-067dbec77f88",
-    "title": "Bank App Test",
-    "description": "Login to create a account",
-    "promptContent": "Go to the application url\nClick on Register\nEnter all details using faker and customer username is : ravi111 and customer password:test111\nand Create new account with saving account \nand validate created account number in account overview screen\nlogout the app",
-    "testType": "UI Test",
-    "tags": [
-      "smoke"
-    ],
-    "additionalContext": "",
-    "baseUrl": "https://parabank.parasoft.com/parabank/index.htm?ConnType=JDBC",
-    "additionalInformation": "",
-    "projectId": "default-project",
-    "modelId": "default-model",
-    "modelName": "Default Model",
-    "promptId": "9389f6cb-4ce1-4442-bafe-4e6554c5a946",
-    "status": "draft",
-    "generatedTests": [],
-    "metadata": {
-      "parsedSteps": [
-        {
-          "stepNumber": 1,
-          "originalText": "Go to the application url",
-          "action": "navigate",
-          "target": "the application url",
-          "value": null,
-          "assertion": null,
-          "waitTime": null
-        },
-        {
-          "stepNumber": 2,
-          "originalText": "Click on Register",
-          "action": "click",
-          "target": "Register",
-          "value": null,
-          "assertion": null,
-          "waitTime": null
-        },
-        {
-          "stepNumber": 3,
-          "originalText": "Enter all details using faker and customer username is : ravi111 and customer password:test111",
-          "action": "fill",
-          "target": "input",
-          "value": null,
-          "assertion": null,
-          "waitTime": null
-        },
-        {
-          "stepNumber": 4,
-          "originalText": "and Create new account with saving account",
-          "action": "unknown",
-          "target": "and Create new account with saving account",
-          "value": null,
-          "assertion": null,
-          "waitTime": null
-        },
-        {
-          "stepNumber": 5,
-          "originalText": "and validate created account number in account overview screen",
-          "action": "assert",
-          "target": "and created account number account overview screen",
-          "value": null,
-          "assertion": "created account number in account overview screen",
-          "waitTime": null
-        },
-        {
-          "stepNumber": 6,
-          "originalText": "logout the app",
-          "action": "unknown",
-          "target": "button",
-          "value": null,
-          "assertion": null,
-          "waitTime": null
-        }
-      ],
-      "timestamp": "2025-10-08T16:21:13.075Z"
-    },
-    "createdAt": "2025-10-08T16:06:29.312Z",
-    "updatedAt": "2025-10-08T16:21:13.077Z"
-  },
-  {
-    "_id": "7328a2d1-119a-4d4c-97ed-70cf56724275",
-    "title": "Shoppin checkout",
-    "description": "checkout",
-    "promptContent": "Go to the shopping web site\nsearch \"devops\"\nadd to cart and click on cart icon\nprocced to checkout\n",
-    "testType": "UI Test",
-    "tags": [],
-    "additionalContext": "",
-    "baseUrl": "https://practice.expandtesting.com/bookstore",
-    "additionalInformation": "",
-    "projectId": "default-project",
-    "modelId": "default-model",
-    "modelName": "Default Model",
-    "promptId": "dc1d1a65-af8f-4321-8130-03c387c18885",
-    "status": "draft",
-    "generatedTests": [],
-    "metadata": {
-      "parsedSteps": [
-        {
-          "stepNumber": 1,
-          "originalText": "Go to the shopping web site",
-          "action": "navigate",
-          "target": "the shopping web site",
-          "value": null,
-          "assertion": null,
-          "waitTime": null
-        },
-        {
-          "stepNumber": 2,
-          "originalText": "search \"devops\"",
-          "action": "unknown",
-          "target": "input",
-          "value": null,
-          "assertion": null,
-          "waitTime": null
-        },
-        {
-          "stepNumber": 3,
-          "originalText": "add to cart and click on cart icon",
-          "action": "click",
-          "target": "add cart and cart icon",
-          "value": null,
-          "assertion": null,
-          "waitTime": null
-        },
-        {
-          "stepNumber": 4,
-          "originalText": "procced to checkout",
-          "action": "assert",
-          "target": "checkbox",
-          "value": null,
-          "assertion": null,
-          "waitTime": null
-        }
-      ],
-      "timestamp": "2025-10-08T22:20:52.289Z"
-    },
-    "createdAt": "2025-10-08T22:20:52.292Z",
-    "updatedAt": "2025-10-08T22:20:52.292Z"
-  },
-  {
     "_id": "419c952c-8bd9-4105-a4dc-c7bfafdcbfbe",
     "title": "Automatic test cases-2",
     "description": "",
@@ -2769,45 +2656,10 @@
     "updatedAt": "2025-10-21T18:50:33.061Z"
   },
   {
-    "_id": "f2ff9499-d785-4f61-8af0-b8143b270373",
-    "title": "Test invalid login-case-1",
-    "description": "Test invalid login",
-    "promptContent": "Test invalid login case ",
-    "testType": "UI Test",
-    "tags": [
-      "smoke"
-    ],
-    "additionalContext": "",
-    "baseUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/auth/login",
-    "additionalInformation": "",
-    "projectId": "default-project",
-    "modelId": "default-model",
-    "modelName": "Default Model",
-    "promptId": "9e9f5ab5-50f5-4307-b52f-0eb8cd38d7f1",
-    "status": "draft",
-    "generatedTests": [],
-    "metadata": {
-      "parsedSteps": [
-        {
-          "stepNumber": 1,
-          "originalText": "Test invalid login case",
-          "action": "unknown",
-          "target": "[data-testid=\"login\"]",
-          "value": null,
-          "assertion": null,
-          "waitTime": null
-        }
-      ],
-      "timestamp": "2025-10-08T22:52:15.042Z"
-    },
-    "createdAt": "2025-10-08T22:52:15.044Z",
-    "updatedAt": "2025-10-21T18:50:01.622Z"
-  },
-  {
     "_id": "8b5f5bc8-1895-42e2-a7b8-cbb65470507e",
     "title": "Go to Profile1",
     "description": "Profile",
-    "promptContent": "1.Navigate to given url\n2.Type username piyush.safaya into Username placeholder field\n3.Type password piyush1234 into Password placeholder field\n4.Click on Log in button\n5. Wait for page load case list item\n6. Click on first pop from case list item\n7.  Wait for page load\n8. Click on hyperlink Profile from left side \n9. Wait for page load \"profile\"",
+    "promptContent": "1.Navigate to given url\n2.Type username piyush.safaya into Username placeholder field\n3.Type password piyush1234 into Password placeholder field\n4.Click on Log in button\n5. Wait for the page title to be 'Shaheen-Cases'\n7. Wait for page load case list item\n8. Click on get by text \"Default Case\"\n9. wait for navigation bar enable \n10. Click on data-icon='user'\n11. Wait for page load \"profile\"",
     "testType": "UI Test",
     "tags": [],
     "additionalContext": "",
@@ -2859,17 +2711,17 @@
         },
         {
           "stepNumber": 5,
-          "originalText": "5. Wait for page load case list item",
+          "originalText": "5. Wait for the page title to be 'Shaheen-Cases'",
           "action": "wait",
-          "target": "dropdown",
+          "target": "text",
           "value": null,
           "assertion": null,
           "waitTime": null
         },
         {
           "stepNumber": 6,
-          "originalText": "6. Click on first pop from case list item",
-          "action": "click",
+          "originalText": "7. Wait for page load case list item",
+          "action": "wait",
           "target": "dropdown",
           "value": null,
           "assertion": null,
@@ -2877,25 +2729,34 @@
         },
         {
           "stepNumber": 7,
-          "originalText": "7.  Wait for page load",
-          "action": "wait",
-          "target": "Wait for page load",
+          "originalText": "8. Click on get by text \"Default Case\"",
+          "action": "click",
+          "target": "[data-testid=\"Default Case\"]",
           "value": null,
           "assertion": null,
           "waitTime": null
         },
         {
           "stepNumber": 8,
-          "originalText": "8. Click on hyperlink Profile from left side",
-          "action": "click",
-          "target": "link",
+          "originalText": "9. wait for navigation bar enable",
+          "action": "wait",
+          "target": "wait for navigation bar enable",
           "value": null,
           "assertion": null,
           "waitTime": null
         },
         {
           "stepNumber": 9,
-          "originalText": "9. Wait for page load \"profile\"",
+          "originalText": "10. Click on data-icon='user'",
+          "action": "click",
+          "target": "user",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 10,
+          "originalText": "11. Wait for page load \"profile\"",
           "action": "wait",
           "target": "profile",
           "value": null,
@@ -2903,9 +2764,9 @@
           "waitTime": null
         }
       ],
-      "timestamp": "2025-11-04T06:12:21.235Z"
+      "timestamp": "2025-11-27T14:06:40.904Z"
     },
     "createdAt": "2025-11-04T05:23:15.396Z",
-    "updatedAt": "2025-11-04T07:18:18.608Z"
+    "updatedAt": "2025-11-27T14:06:40.905Z"
   }
 ]

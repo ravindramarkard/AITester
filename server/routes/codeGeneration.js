@@ -638,6 +638,54 @@ async function executeTestInBrowser(testCode, baseUrl) {
   }
 }
 
+// Helper function to generate unique file path with incremental postfix if file exists
+function generateUniqueSpecFilePath(testName, baseDir) {
+  // Sanitize test name for filename
+  let sanitizedTestName = (testName || 'test')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-zA-Z0-9\s-]/g, '') // Remove special characters except spaces and hyphens
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+  
+  // Ensure we have a valid filename (at least 1 character)
+  if (!sanitizedTestName || sanitizedTestName.length === 0) {
+    sanitizedTestName = 'test';
+  }
+  
+  // Limit filename length to avoid filesystem issues (max 200 chars)
+  if (sanitizedTestName.length > 200) {
+    sanitizedTestName = sanitizedTestName.substring(0, 200);
+  }
+  
+  // Base filename without extension
+  const baseFileName = sanitizedTestName;
+  
+  // Check if base file exists
+  let filePath = path.join(baseDir, `${baseFileName}.spec.ts`);
+  let postfix = 0;
+  
+  // If file exists, add incremental postfix (.1, .2, .3, etc.)
+  while (fs.existsSync(filePath)) {
+    postfix++;
+    filePath = path.join(baseDir, `${baseFileName}.${postfix}.spec.ts`);
+    
+    // Safety limit to prevent infinite loop (max 1000 iterations)
+    if (postfix > 1000) {
+      console.error('⚠️ Too many file conflicts, using timestamp fallback');
+      filePath = path.join(baseDir, `${baseFileName}.${Date.now()}.spec.ts`);
+      break;
+    }
+  }
+  
+  if (postfix > 0) {
+    console.log(`📝 File ${baseFileName}.spec.ts exists, using postfix: ${postfix}`);
+  }
+  
+  return filePath;
+}
+
 // Fallback function to generate simple test code when LLM fails
 function generateFallbackTestCode(promptContent, testName, baseUrl) {
   console.log('⚠️ Using fallback template generation');
@@ -657,443 +705,242 @@ function generateFallbackTestCode(promptContent, testName, baseUrl) {
     `;
 }
 
-// Helper function to perform real-time step-by-step LLM interaction
-async function performStepByStepLLMInteraction(promptContent, testName, baseUrl, environment) {
-  const { chromium } = require('playwright');
-  const llmService = new LLMService();
-  
-  // Open browser IMMEDIATELY
-  console.log('🚀 Opening browser IMMEDIATELY for real-time interaction...');
-  const browser = await chromium.launch({ 
-    headless: false, 
-    slowMo: 1000,  // Slow down for visibility
-    devtools: false 
-  });
-  
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  
-  console.log('✅ Browser opened - navigating to:', baseUrl);
-  await page.goto(baseUrl);
-  await page.waitForLoadState('networkidle');
-  console.log('✅ Page loaded - LLM will now analyze and interact step-by-step');
-  
-  const recordedSteps = [];
-  let stepNumber = 1;
-  const maxSteps = 50; // Prevent infinite loops
-  let previousState = '';
-  
-  while (stepNumber <= maxSteps) {
-    try {
-      console.log(`\n📊 Step ${stepNumber}: Analyzing current page state...`);
-      
-      // Capture current page state for LLM analysis
-      const pageState = await page.evaluate(() => {
-        return {
-          url: window.location.href,
-          title: document.title,
-          visibleText: document.body.innerText.substring(0, 1000),
-          buttons: Array.from(document.querySelectorAll('button')).map(btn => ({
-            text: btn.textContent?.trim() || '',
-            visible: btn.offsetParent !== null
-          })).filter(btn => btn.visible && btn.text),
-          inputs: Array.from(document.querySelectorAll('input, textarea')).map(input => ({
-            type: input.type || 'text',
-            placeholder: input.placeholder || '',
-            name: input.name || '',
-            visible: input.offsetParent !== null
-          })).filter(input => input.visible),
-          links: Array.from(document.querySelectorAll('a')).map(link => ({
-            text: link.textContent?.trim() || '',
-            href: link.href || '',
-            visible: link.offsetParent !== null
-          })).filter(link => link.visible && link.text),
-          headings: Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')).map(h => ({
-            level: h.tagName,
-            text: h.textContent?.trim() || ''
-          })).filter(h => h.text)
-        };
-      });
-      
-      // Check if state has changed (to avoid infinite loops)
-      const currentState = JSON.stringify(pageState);
-      if (currentState === previousState) {
-        console.log('⚠️ Page state unchanged, waiting a bit...');
-        await page.waitForTimeout(2000);
-      }
-      previousState = currentState;
-      
-      // Create LLM prompt for next action
-      const actionPrompt = `You are controlling a browser in real-time. Analyze the current page state and determine the NEXT ACTION to complete the user's goal.
-
-## Current Page State:
-URL: ${pageState.url}
-Title: ${pageState.title}
-Visible Text (first 1000 chars): ${pageState.visibleText.substring(0, 500)}
-
-Available Buttons: ${JSON.stringify(pageState.buttons.slice(0, 10))}
-Available Input Fields: ${JSON.stringify(pageState.inputs.slice(0, 10))}
-Available Links: ${JSON.stringify(pageState.links.slice(0, 10))}
-Headings: ${JSON.stringify(pageState.headings.slice(0, 5))}
-
-## User's Goal:
-${promptContent}
-
-## Previous Actions Taken:
-${recordedSteps.length > 0 ? recordedSteps.slice(-5).map((s, i) => `${i + 1}. ${s}`).join('\n') : 'None yet'}
-
-## Task:
-Analyze the current page and determine the NEXT SINGLE ACTION needed to progress toward the user's goal.
-
-Return ONLY a JSON object with this exact structure:
-{
-  "action": "click" | "fill" | "navigate" | "wait" | "complete",
-  "selector": "description of element to interact with (e.g., 'button with text Login', 'input with placeholder Username')",
-  "value": "value to fill (only for fill action)",
-  "waitFor": "what to wait for after action (e.g., 'networkidle', 'navigation', 'element visible')",
-  "reason": "brief explanation of why this action"
-}
-
-If the goal is complete, return: {"action": "complete", "reason": "goal achieved"}
-
-IMPORTANT: 
-- Return ONLY valid JSON, no markdown, no explanations
-- Choose the most logical next step based on the page state
-- Use dynamic waiting based on what you see on the page
-- Be specific about selectors based on visible elements`;
-
-      console.log('🤖 Asking LLM for next action...');
-      
-      // Get next action from LLM
-      const llmResponse = await llmService.generateCode(actionPrompt, environment, {
-        testName: testName,
-        maxTokens: 500 // Limit response size for action decisions
-      });
-      
-      // Parse LLM response to extract JSON
-      let actionData = null;
-      try {
-        // Try to extract JSON from response
-        const jsonMatch = llmResponse.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          actionData = JSON.parse(jsonMatch[0]);
-        } else {
-          throw new Error('No JSON found in LLM response');
-        }
-      } catch (parseError) {
-        console.error('❌ Failed to parse LLM action response:', llmResponse.substring(0, 200));
-        // Fallback: try to complete or exit
-        actionData = { action: 'complete', reason: 'LLM response parsing failed' };
-      }
-      
-      console.log(`📋 LLM Action: ${actionData.action} - ${actionData.reason}`);
-      
-      // Check if complete
-      if (actionData.action === 'complete') {
-        console.log('✅ Goal completed!', actionData.reason);
-        break;
-      }
-      
-      // Execute the action
-      let executed = false;
-      
-      if (actionData.action === 'click') {
-        // Find and click the element
-        const selector = actionData.selector || '';
-        console.log(`🔘 Clicking: ${selector}`);
-        
-        // Try multiple selector strategies
-        try {
-          // Try by text first
-          if (selector.toLowerCase().includes('button')) {
-            const buttonText = selector.match(/text[:\s]+([^,]+)/i)?.[1]?.trim() || selector.replace(/button/i, '').trim();
-            if (buttonText) {
-              const btn = page.getByRole('button', { name: new RegExp(buttonText, 'i') });
-              await btn.waitFor({ state: 'visible', timeout: 10000 });
-              await btn.click();
-              executed = true;
-              console.log(`✅ Clicked button: ${buttonText}`);
-            }
-          }
-          
-          // Try by link text
-          if (!executed && selector.toLowerCase().includes('link')) {
-            const linkText = selector.match(/text[:\s]+([^,]+)/i)?.[1]?.trim() || selector.replace(/link/i, '').trim();
-            if (linkText) {
-              const link = page.getByRole('link', { name: new RegExp(linkText, 'i') });
-              await link.waitFor({ state: 'visible', timeout: 10000 });
-              await link.click();
-              executed = true;
-              console.log(`✅ Clicked link: ${linkText}`);
-            }
-          }
-          
-          // Fallback: try to find by any text
-          if (!executed) {
-            const textMatch = selector.match(/([^,]+)/)?.[1]?.trim();
-            if (textMatch) {
-              const element = page.getByText(new RegExp(textMatch, 'i')).first();
-              await element.waitFor({ state: 'visible', timeout: 10000 });
-              await element.click();
-              executed = true;
-              console.log(`✅ Clicked element with text: ${textMatch}`);
-            }
-          }
-        } catch (clickError) {
-          console.error(`❌ Failed to click ${selector}:`, clickError.message);
-        }
-        
-      } else if (actionData.action === 'fill') {
-        // Fill an input field
-        const selector = actionData.selector || '';
-        const value = actionData.value || '';
-        console.log(`✍️ Filling ${selector} with: ${value}`);
-        
-        try {
-          // Try by placeholder
-          if (selector.toLowerCase().includes('placeholder') || selector.toLowerCase().includes('username') || selector.toLowerCase().includes('password')) {
-            const placeholderMatch = selector.match(/placeholder[:\s]+([^,]+)/i)?.[1]?.trim() || 
-                                       (selector.toLowerCase().includes('username') ? 'username' : '') ||
-                                       (selector.toLowerCase().includes('password') ? 'password' : '');
-            
-            if (placeholderMatch) {
-              const input = page.getByPlaceholder(new RegExp(placeholderMatch, 'i'));
-              await input.waitFor({ state: 'visible', timeout: 10000 });
-              await input.fill(value);
-              executed = true;
-              console.log(`✅ Filled input by placeholder: ${placeholderMatch}`);
-            }
-          }
-          
-          // Try by name attribute
-          if (!executed) {
-            const nameMatch = selector.match(/name[:\s]+([^,]+)/i)?.[1]?.trim();
-            if (nameMatch) {
-              const input = page.locator(`input[name="${nameMatch}"], textarea[name="${nameMatch}"]`);
-              await input.waitFor({ state: 'visible', timeout: 10000 });
-              await input.fill(value);
-              executed = true;
-              console.log(`✅ Filled input by name: ${nameMatch}`);
-            }
-          }
-        } catch (fillError) {
-          console.error(`❌ Failed to fill ${selector}:`, fillError.message);
-        }
-        
-      } else if (actionData.action === 'wait') {
-        // Wait for something
-        const waitFor = actionData.waitFor || 'networkidle';
-        console.log(`⏳ Waiting for: ${waitFor}`);
-        
-        try {
-          if (waitFor === 'networkidle') {
-            await page.waitForLoadState('networkidle', { timeout: 10000 });
-          } else if (waitFor.includes('visible') || waitFor.includes('element')) {
-            // Try to wait for a specific element
-            const elementMatch = waitFor.match(/element[:\s]+([^,]+)/i)?.[1]?.trim();
-            if (elementMatch) {
-              const element = page.locator(elementMatch).first();
-              await element.waitFor({ state: 'visible', timeout: 10000 });
-            }
-          } else {
-            await page.waitForTimeout(2000);
-          }
-          executed = true;
-          console.log(`✅ Waited for: ${waitFor}`);
-        } catch (waitError) {
-          console.error(`❌ Wait failed:`, waitError.message);
-        }
-      }
-      
-      if (executed) {
-        // Record the step with full details
-        let stepRecord = `${actionData.action}: ${actionData.selector || actionData.waitFor || 'N/A'}`;
-        if (actionData.action === 'fill' && actionData.value) {
-          stepRecord += ` with ${actionData.value}`;
-        }
-        recordedSteps.push(stepRecord);
-        
-        // Wait for page to update based on actionData.waitFor
-        if (actionData.waitFor) {
-          try {
-            if (actionData.waitFor === 'networkidle') {
-              await page.waitForLoadState('networkidle', { timeout: 5000 });
-            } else if (actionData.waitFor === 'navigation') {
-              await page.waitForURL('**', { timeout: 5000 });
-            } else {
-              await page.waitForTimeout(1000); // Default wait
-            }
-          } catch (waitError) {
-            // Continue even if wait times out
-            console.log('⚠️ Wait timeout, continuing...');
-          }
-        } else {
-          // Default wait after action
-          await page.waitForTimeout(1000);
-        }
-      }
-      
-      stepNumber++;
-      
-    } catch (stepError) {
-      console.error(`❌ Error in step ${stepNumber}:`, stepError.message);
-      stepNumber++;
-      
-      // If too many errors, break
-      if (stepNumber > maxSteps) {
-        console.log('⚠️ Maximum steps reached or too many errors');
-        break;
-      }
-    }
-  }
-  
-  // Take final screenshot
-  await page.screenshot({ path: 'realtime-llm-interaction-final.png' });
-  console.log('📸 Final screenshot saved');
-  
-  // Generate final spec code from recorded steps
-  const specCode = generateSpecFromRecordedSteps(recordedSteps, testName, baseUrl);
-  
-  await browser.close();
-  console.log('🔚 Browser closed');
-  
-  return {
-    specCode,
-    recordedSteps,
-    success: true
-  };
-}
-
-// Helper function to generate spec code from recorded steps
-function generateSpecFromRecordedSteps(recordedSteps, testName, baseUrl) {
-  // Convert recorded steps to actual Playwright code
-  const stepCode = recordedSteps.map((step, i) => {
-    const stepParts = step.split(':');
-    const action = stepParts[0]?.trim() || '';
-    const selector = stepParts.slice(1).join(':').trim() || '';
-    
-    if (action === 'click') {
-      // Try to extract meaningful selector info
-      if (selector.includes('button') || selector.toLowerCase().includes('login') || selector.toLowerCase().includes('save')) {
-        const buttonText = selector.match(/([^,]+)/)?.[1]?.trim() || selector.replace(/button/i, '').trim();
-        return `    // Step ${i + 1}: Click ${selector}
-    const btn${i} = page.getByRole('button', { name: /${buttonText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/i });
-    await btn${i}.waitFor({ state: 'visible', timeout: 10000 });
-    await btn${i}.click();
-    console.log('✅ Clicked: ${buttonText}');
-    await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
-    await page.waitForTimeout(1000);`;
-      } else if (selector.includes('link')) {
-        const linkText = selector.match(/([^,]+)/)?.[1]?.trim() || selector.replace(/link/i, '').trim();
-        return `    // Step ${i + 1}: Click ${selector}
-    const link${i} = page.getByRole('link', { name: /${linkText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/i });
-    await link${i}.waitFor({ state: 'visible', timeout: 10000 });
-    await link${i}.click();
-    console.log('✅ Clicked link: ${linkText}');
-    await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
-    await page.waitForTimeout(1000);`;
-      } else {
-        return `    // Step ${i + 1}: ${step}
-    // Note: This step was recorded but needs manual implementation
-    await page.waitForTimeout(1000);`;
-      }
-    } else if (action === 'fill') {
-      const fillParts = selector.split(' with ');
-      const fieldDesc = fillParts[0]?.trim() || '';
-      const value = fillParts[1]?.trim() || '';
-      
-      if (fieldDesc.toLowerCase().includes('username')) {
-        return `    // Step ${i + 1}: Fill username
-    const usernameField = page.getByPlaceholder(/username/i);
-    await usernameField.waitFor({ state: 'visible', timeout: 10000 });
-    await usernameField.fill('${value || process.env.UI_USERNAME || 'Admin'}');
-    console.log('✅ Filled username');
-    await page.waitForTimeout(500);`;
-      } else if (fieldDesc.toLowerCase().includes('password')) {
-        return `    // Step ${i + 1}: Fill password
-    const passwordField = page.getByPlaceholder(/password/i);
-    await passwordField.waitFor({ state: 'visible', timeout: 10000 });
-    await passwordField.fill('${value || process.env.UI_PASSWORD || 'admin123'}');
-    console.log('✅ Filled password');
-    await page.waitForTimeout(500);`;
-      } else {
-        return `    // Step ${i + 1}: ${step}
-    // Note: This fill step was recorded but needs manual implementation
-    await page.waitForTimeout(1000);`;
-      }
-    } else if (action === 'wait') {
-      return `    // Step ${i + 1}: Wait ${selector}
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-    console.log('✅ Waited for: ${selector}');`;
-    } else {
-      return `    // Step ${i + 1}: ${step}
-    await page.waitForTimeout(1000);`;
-    }
-  }).join('\n\n');
-  
-  return `import { test, expect } from '@playwright/test';
-
-test.describe('Real-time Browser Interaction', () => {
-  test('${testName}', async ({ page }) => {
-    console.log('🚀 Starting real-time browser interaction...');
-    
-    const TARGET_URL = process.env.BASE_URL || '${baseUrl}';
-    await page.goto(TARGET_URL);
-    await page.waitForLoadState('networkidle');
-    console.log('✅ Page loaded');
-    
-    // Recorded steps from real-time LLM interaction:
-${stepCode || '    // No steps were recorded'}
-    
-    console.log('✅ Test execution completed!');
-  });
-});`;
-}
-
 // Helper function to process LLM with real-time browser
 async function processLLMWithRealtimeBrowser(options) {
   const { promptContent, testName, testType, environment, parsedSteps, baseUrl, browserInstance } = options;
   
   try {
     console.log('🚀 REAL-TIME BROWSER INTERACTION MODE WITH LLM');
-    console.log('🌐 Opening browser IMMEDIATELY for step-by-step LLM interaction...');
+    console.log('🌐 Using LLM to generate Playwright code from prompt...');
     console.log('🎯 Prompt:', promptContent);
     
-    // IMMEDIATELY open browser and let LLM interact step-by-step
-    console.log('🚀 Browser will open IMMEDIATELY and LLM will interact step-by-step...');
-    const realtimeResult = await performStepByStepLLMInteraction(promptContent, testName, baseUrl, environment);
+    // Perform DOM analysis to discover available elements
+    console.log('🔍 Starting DOM analysis using Playwright Crawler...');
+    const DOMAnalyzer = require('../services/DOMAnalyzer');
+    const domAnalyzer = new DOMAnalyzer();
     
-    if (!realtimeResult.success) {
-      throw new Error('Step-by-step LLM interaction failed');
+    let domAnalysisResult = null;
+    try {
+      // Analyze DOM using document.querySelectorAll through Playwright
+      domAnalysisResult = await domAnalyzer.analyzePage(baseUrl, {
+        timeout: 15000,
+        waitUntil: 'domcontentloaded',
+        retries: 1
+      });
+      
+      console.log(`✅ DOM analysis completed:`);
+      console.log(`   - Found ${domAnalysisResult.elements?.length || 0} interactive elements`);
+      console.log(`   - Page title: ${domAnalysisResult.pageTitle || 'Unknown'}`);
+      console.log(`   - Form fields: ${domAnalysisResult.formFields?.length || 0}`);
+      
+      // Log some example elements found
+      if (domAnalysisResult.elements && domAnalysisResult.elements.length > 0) {
+        console.log('📋 Sample elements discovered:');
+        domAnalysisResult.elements.slice(0, 5).forEach((el, idx) => {
+          console.log(`   ${idx + 1}. ${el.type}: ${el.text || el.attributes.placeholder || el.attributes.name || 'unnamed'}`);
+        });
+      }
+    } catch (domError) {
+      console.warn('⚠️ DOM analysis failed:', domError.message);
+      console.log('Continuing without DOM analysis...');
+    } finally {
+      // Cleanup DOM analyzer
+      try {
+        await domAnalyzer.cleanup();
+      } catch (cleanupError) {
+        console.warn('DOM analyzer cleanup warning:', cleanupError.message);
+      }
     }
     
-    // Use the spec code generated from recorded steps
-    const specCode = realtimeResult.specCode;
-    console.log('✅ Generated spec code from real-time interactions (length:', specCode.length, 'chars)');
-    console.log('📝 Recorded steps:', realtimeResult.recordedSteps.length);
+    // Use LLM to generate Playwright code based on the actual prompt
+    const llmService = new LLMService();
+    
+    // Create a comprehensive prompt for LLM to generate Playwright code
+    // Include timestamp to ensure uniqueness and prevent caching
+    const timestamp = Date.now();
+    const uniqueId = Math.random().toString(36).substring(7);
+    
+    // Build DOM elements section for LLM prompt
+    let domElementsSection = '';
+    if (domAnalysisResult && domAnalysisResult.elements && domAnalysisResult.elements.length > 0) {
+      const buttons = domAnalysisResult.elements.filter(el => el.type === 'button').slice(0, 10);
+      const inputs = domAnalysisResult.elements.filter(el => el.type === 'input').slice(0, 10);
+      const links = domAnalysisResult.elements.filter(el => el.type === 'link').slice(0, 10);
+      const selects = domAnalysisResult.elements.filter(el => el.type === 'select').slice(0, 5);
+      
+      domElementsSection = `\n## DOM Analysis Results - Discovered Elements:
+Page Title: ${domAnalysisResult.pageTitle || 'Unknown'}
+Total Elements Found: ${domAnalysisResult.elements.length}
+
+### Available Buttons (${buttons.length} shown):
+${buttons.map((btn, idx) => `${idx + 1}. Text: "${btn.text || 'No text'}" | Best Selector: ${btn.selectors[0] || 'No selector'}`).join('\n')}
+
+### Available Input Fields (${inputs.length} shown):
+${inputs.map((inp, idx) => `${idx + 1}. Type: ${inp.attributes.type || 'text'} | Placeholder: "${inp.attributes.placeholder || 'No placeholder'}" | Name: "${inp.attributes.name || 'No name'}" | Best Selector: ${inp.selectors[0] || 'No selector'}`).join('\n')}
+
+### Available Links (${links.length} shown):
+${links.map((link, idx) => `${idx + 1}. Text: "${link.text || 'No text'}" | Href: "${link.attributes.href || 'No href'}" | Best Selector: ${link.selectors[0] || 'No selector'}`).join('\n')}
+
+${selects.length > 0 ? `### Available Select Dropdowns (${selects.length} shown):
+${selects.map((sel, idx) => `${idx + 1}. Name: "${sel.attributes.name || 'No name'}" | Best Selector: ${sel.selectors[0] || 'No selector'}`).join('\n')}` : ''}
+
+**IMPORTANT: Use these discovered elements to generate accurate, working selectors!**
+- Prefer getByRole, getByPlaceholder, getByLabel, getByText based on the element information above
+- Use the exact text content shown above for button/link selectors
+- Use the exact placeholder/name attributes shown above for input selectors
+`;
+    }
+    
+    const llmPrompt = `You are an expert Playwright test automation engineer. Generate a complete, unique Playwright test spec file based on the following user prompt.
+
+## IMPORTANT: Generate FRESH code for this specific prompt
+- Request ID: ${uniqueId}
+- Timestamp: ${timestamp}
+- Do NOT reuse previous templates or cached code
+- Generate code specifically tailored to the user's prompt below
+
+## User Prompt:
+${promptContent}
+
+## Test Details:
+- Test Name: ${testName}
+- Test Type: ${testType}
+- Base URL: ${baseUrl}
+${domElementsSection}
+## Requirements:
+1. Generate a complete, working Playwright test spec file SPECIFIC to this prompt
+2. Use the EXACT actions described in the user prompt - do not use generic templates
+3. **USE THE DISCOVERED ELEMENTS FROM DOM ANALYSIS ABOVE** - match element text, placeholders, and attributes exactly
+4. Include proper waits and error handling
+5. Use realistic selectors based on the DOM analysis (prefer getByRole, getByPlaceholder, getByText over CSS selectors)
+6. Add console.log statements for each step to track progress
+7. Include proper assertions based on the expected outcome
+8. Use environment variables for credentials (UI_USERNAME, UI_PASSWORD, etc.)
+9. Generate code that matches the specific prompt content, not generic templates
+
+## Base URL Setup:
+\`\`\`typescript
+const TARGET_URL = process.env.BASE_URL || '${baseUrl}';
+await page.goto(TARGET_URL);
+await page.waitForLoadState('networkidle');
+\`\`\`
+
+## CRITICAL: 
+- Generate UNIQUE code for this specific prompt: "${promptContent.substring(0, 200)}"
+- Do NOT use cached or template-based code
+- Use the EXACT element information from the DOM Analysis section above
+- Analyze the prompt carefully and generate code that implements the exact steps described
+
+Generate the complete Playwright test code that implements the user's prompt. The code should be production-ready and executable.`;
+
+    console.log('🤖 Calling LLM to generate Playwright code...');
+    
+    let generatedCode = '';
+    try {
+      // Generate code using LLM
+      generatedCode = await llmService.generateCode(llmPrompt, environment, {
+        testName: testName,
+        testType: testType,
+        baseUrl: baseUrl
+      });
+      
+      console.log('✅ LLM generated code successfully (length:', generatedCode.length, 'chars)');
+      
+      // Clean up the generated code (remove markdown fences, etc.)
+      generatedCode = cleanGeneratedCode(generatedCode);
+      
+      // Extract test code from the generated response if needed
+      // The LLM might return code wrapped in markdown or explanations
+      const codeBlockMatch = generatedCode.match(/```(?:typescript|ts|javascript|js)?\n([\s\S]*?)```/);
+      if (codeBlockMatch) {
+        generatedCode = codeBlockMatch[1];
+      }
+      
+      // Ensure it starts with imports
+      if (!generatedCode.includes('import { test')) {
+        generatedCode = `import { test, expect } from '@playwright/test';\n\n${generatedCode}`;
+      }
+      
+    } catch (llmError) {
+      console.error('❌ LLM generation failed:', llmError);
+      console.log('⚠️ Falling back to template-based generation...');
+      
+      // Fallback to template generation if LLM fails
+      generatedCode = generateFallbackTestCode(promptContent, testName, baseUrl);
+    }
+    
+    // Use LLM-generated code directly - no template matching
+    let specCode = generatedCode;
+    
+    // Ensure the spec code has the proper structure
+    if (!specCode.includes('test.describe') && !specCode.includes('test(')) {
+      // Wrap in test structure if needed
+      specCode = `import { test, expect } from '@playwright/test';
+
+test.describe('${testName}', () => {
+  test('${testName}', async ({ page }) => {
+    console.log('🚀 Starting test execution...');
+    
+    const TARGET_URL = process.env.BASE_URL || '${baseUrl}';
+    await page.goto(TARGET_URL);
+    await page.waitForLoadState('networkidle');
+    
+    ${generatedCode}
+    
+    console.log('✅ Test execution completed!');
+  });
+});`;
+    }
+    
+    // Ensure spec code ends properly
+    if (!specCode.includes('});')) {
+      specCode += '\n  });\n});';
+    }
+    
+    console.log('✅ Final spec code generated (length:', specCode.length, 'chars)');
+    console.log('📝 Code preview:', specCode.substring(0, 500) + '...');
+    
+    // Use LLM-generated code directly - no hardcoded templates
+    // The specCode variable already contains the LLM-generated code
+    // Just ensure it's properly formatted
+
+    const simpleSpecCode = specCode;
     
     // Save the spec file to the proper location
-    const specFilePath = path.join(__dirname, '../../tests/projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts', 
-      `${Date.now()}-${testName.toLowerCase().replace(/\s+/g, '-')}.spec.ts`);
+    // Use prompt title only (no timestamp), with incremental postfix if file exists
+    const specDir = path.join(__dirname, '../../tests/projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts');
     
     // Ensure the directory exists
-    const specDir = path.dirname(specFilePath);
     if (!fs.existsSync(specDir)) {
       fs.mkdirSync(specDir, { recursive: true });
       console.log('📁 Created spec directory:', specDir);
     }
     
+    // Generate unique file path with incremental postfix if needed
+    const specFilePath = generateUniqueSpecFilePath(testName, specDir);
+    console.log('📝 Generated spec file path:', specFilePath);
+    
     // Save the spec file
-    fs.writeFileSync(specFilePath, specCode);
+    fs.writeFileSync(specFilePath, simpleSpecCode);
     console.log('💾 Spec file saved:', specFilePath);
+    
+    // IMMEDIATE browser interaction - no LLM processing, no DOM analysis
+    console.log('🚀 Starting IMMEDIATE real-time LLM interaction...');
+    console.log('👀 Watch the browser window for real-time LLM actions!');
+    try {
+      await performRealtimeLLMInteraction(simpleSpecCode, baseUrl, promptContent, parsedSteps);
+      console.log('✅ IMMEDIATE real-time LLM interaction completed successfully!');
+    } catch (error) {
+      console.error('❌ IMMEDIATE real-time LLM interaction failed:', error);
+      console.error('❌ Error details:', error.message);
+    }
     
     return {
       success: true,
-      testCode: specCode,
+      testCode: simpleSpecCode,
       specFilePath: specFilePath,
-      message: 'Real-time step-by-step browser interaction completed',
-      realtimeMode: true,
-      recordedSteps: realtimeResult.recordedSteps
+      message: 'IMMEDIATE real-time browser interaction completed',
+      realtimeMode: true
     };
     
   } catch (error) {
@@ -1692,14 +1539,17 @@ Return ONLY the complete TypeScript test file code without any explanations or m
     
     console.log(`LLM code generation successful, execution mode: ${executionMode}`);
 
-    // Generate file path for saving
-    const filePath = codeGenerator.generateFilePath(
-      'enhanced-ai',
-      'llm-generated',
-      'LLM-Generated',
-      uuidv4(),
-      testName
-    );
+    // Generate file path for saving - use prompt title only (no UUID folders)
+    const specDir = path.join(__dirname, '../../tests/projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts');
+    
+    // Ensure directory exists
+    if (!fs.existsSync(specDir)) {
+      fs.mkdirSync(specDir, { recursive: true });
+      console.log('📁 Created spec directory:', specDir);
+    }
+    
+    // Generate unique file path with incremental postfix if needed
+    const filePath = generateUniqueSpecFilePath(testName, specDir);
     console.log('Generated filePath in route:', filePath);
 
     // Save the test file
@@ -1875,7 +1725,6 @@ router.post('/generate-and-save', async (req, res) => {
     }
     
     // Generate unique IDs
-    const promptId = uuidv4();
     const testId = uuidv4();
     
     // Generate the test code
@@ -1890,14 +1739,18 @@ router.post('/generate-and-save', async (req, res) => {
       }
     );
     
-    // Generate file path
-    const filePath = codeGenerator.generateFilePath(
-      projectId,
-      modelId,
-      modelName,
-      promptId,
-      testName || 'Generated Test'
-    );
+    // Generate file path - use prompt title only (no UUID folders)
+    const specDir = path.join(__dirname, '../../tests/projects', projectId, 'models', modelId, modelName.replace(/[^a-zA-Z0-9-_]/g, '-'), 'prompts');
+    
+    // Ensure directory exists
+    if (!fs.existsSync(specDir)) {
+      fs.mkdirSync(specDir, { recursive: true });
+      console.log('📁 Created spec directory:', specDir);
+    }
+    
+    // Generate unique file path with incremental postfix if needed
+    const filePath = generateUniqueSpecFilePath(testName || 'Generated Test', specDir);
+    console.log('Generated filePath:', filePath);
     
     // Save test file
     const savedPath = await codeGenerator.saveTestFile(testCode, filePath);
@@ -1906,7 +1759,7 @@ router.post('/generate-and-save', async (req, res) => {
       testCode,
       filePath: savedPath,
       testId,
-      promptId,
+      promptId: testId, // Use testId as promptId for backward compatibility
       parsedPrompt,
       metadata: {
         hasUI: parsedPrompt.hasUI,
@@ -2135,7 +1988,6 @@ router.post('/generate-and-run', async (req, res) => {
     }
     
     // Generate unique IDs
-    const promptId = uuidv4();
     const testId = uuidv4();
     
     // Generate the test code
@@ -2150,14 +2002,18 @@ router.post('/generate-and-run', async (req, res) => {
       }
     );
     
-    // Generate file path
-    const filePath = codeGenerator.generateFilePath(
-      projectId,
-      modelId,
-      modelName,
-      promptId,
-      testName || 'Generated Test'
-    );
+    // Generate file path - use prompt title only (no UUID folders)
+    const specDir = path.join(__dirname, '../../tests/projects', projectId, 'models', modelId, modelName.replace(/[^a-zA-Z0-9-_]/g, '-'), 'prompts');
+    
+    // Ensure directory exists
+    if (!fs.existsSync(specDir)) {
+      fs.mkdirSync(specDir, { recursive: true });
+      console.log('📁 Created spec directory:', specDir);
+    }
+    
+    // Generate unique file path with incremental postfix if needed
+    const filePath = generateUniqueSpecFilePath(testName || 'Generated Test', specDir);
+    console.log('Generated filePath:', filePath);
     
     // Save test file
     const savedPath = await codeGenerator.saveTestFile(testCode, filePath);
@@ -2608,17 +2464,21 @@ Return ONLY the complete TypeScript test file code without any explanations or m
     
     console.log('LLM code generation successful, proceeding with test execution');
 
-    // Generate file path for saving
+    // Generate file path for saving - use prompt title only (no UUID folders)
     const CodeGenerator = require('../services/CodeGenerator');
     const codeGenerator = new CodeGenerator();
     
-    const filePath = codeGenerator.generateFilePath(
-      'enhanced-ai',
-      'llm-generated',
-      'LLM-Generated',
-      uuidv4(),
-      testName
-    );
+    const specDir = path.join(__dirname, '../../tests/projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts');
+    
+    // Ensure directory exists
+    if (!fs.existsSync(specDir)) {
+      fs.mkdirSync(specDir, { recursive: true });
+      console.log('📁 Created spec directory:', specDir);
+    }
+    
+    // Generate unique file path with incremental postfix if needed
+    const filePath = generateUniqueSpecFilePath(testName, specDir);
+    console.log('Generated filePath:', filePath);
 
     // Save the test file
     const savedPath = await codeGenerator.saveTestFile(testCode, filePath);

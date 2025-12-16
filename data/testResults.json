@@ -2580,5 +2580,25 @@
     "source": "single",
     "createdAt": "2025-11-28T10:13:09.862Z",
     "updatedAt": "2025-11-28T10:13:09.862Z"
+  },
+  {
+    "_id": "22fe711a-5faa-4c34-9059-7e96d0333998",
+    "executionId": "22fe711a-5faa-4c34-9059-7e96d0333998",
+    "testId": "ui-test-case-create-a-case-without-collaborators-assigned.1",
+    "promptId": null,
+    "testName": "Browser Test",
+    "testType": "UI Test",
+    "environment": "llm-test",
+    "browser": "chromium",
+    "headless": false,
+    "retries": 0,
+    "timeout": 30000,
+    "status": "running",
+    "startedAt": "2025-12-16T09:16:39.700Z",
+    "results": null,
+    "logs": [],
+    "source": "single",
+    "createdAt": "2025-12-16T09:16:39.708Z",
+    "updatedAt": "2025-12-16T09:16:39.708Z"
   }
 ]

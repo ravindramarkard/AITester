@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../../../../../../fixtures/self-healing';
 import { allure } from 'allure-playwright';
 
 const TARGET_URL = process.env.BASE_URL || 'https://staging-shaheen.dev.g42a.ae/';

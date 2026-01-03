@@ -2768,5 +2768,58 @@
     },
     "createdAt": "2025-11-04T05:23:15.396Z",
     "updatedAt": "2025-11-27T14:06:40.905Z"
+  },
+  {
+    "_id": "b14ae1bf-ea2d-4cdd-a0ad-316dc304dca7",
+    "title": "register",
+    "description": "rgister",
+    "promptContent": "go to this url https://parabank.parasoft.com/parabank/index.htm\nClick on register.\nEnter details of register page\n",
+    "testType": "UI Test",
+    "tags": [
+      "smoke"
+    ],
+    "additionalContext": "",
+    "baseUrl": "https://parabank.parasoft.com/parabank/index.htm?",
+    "additionalInformation": "",
+    "projectId": "default-project",
+    "modelId": "default-model",
+    "modelName": "Default Model",
+    "promptId": "0049ed2f-5406-498d-a470-4655753ae60b",
+    "status": "draft",
+    "generatedTests": [],
+    "metadata": {
+      "parsedSteps": [
+        {
+          "stepNumber": 1,
+          "originalText": "go to this url https://parabank.parasoft.com/parabank/index.htm",
+          "action": "navigate",
+          "target": "https://parabank.parasoft.com/parabank/index.htm",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 2,
+          "originalText": "Click on register.",
+          "action": "click",
+          "target": "register.",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        },
+        {
+          "stepNumber": 3,
+          "originalText": "Enter details of register page",
+          "action": "fill",
+          "target": "details register page",
+          "value": null,
+          "assertion": null,
+          "waitTime": null
+        }
+      ],
+      "timestamp": "2026-01-03T18:19:29.315Z"
+    },
+    "createdAt": "2026-01-03T10:41:32.575Z",
+    "updatedAt": "2026-01-03T18:19:29.316Z"
   }
 ]

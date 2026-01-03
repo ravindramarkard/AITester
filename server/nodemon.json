@@ -2,6 +2,10 @@
   "watch": ["."],
   "ignore": [
     "reports/**",
+    "tests/**",
+    "screenshots/**",
+    "*.png",
+    "healed_steps.json",
     "../test-results/**",
     "../allure-results/**",
     "node_modules/**"

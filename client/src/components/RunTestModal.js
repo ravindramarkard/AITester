@@ -149,7 +149,7 @@ const ToggleSwitch = styled.div`
   position: relative;
   width: 44px;
   height: 24px;
-  background-color: ${props => props.active ? '#3b82f6' : '#d1d5db'};
+  background-color: ${props => props.$active ? '#3b82f6' : '#d1d5db'};
   border-radius: 12px;
   transition: background-color 0.2s;
   cursor: pointer;
@@ -158,7 +158,7 @@ const ToggleSwitch = styled.div`
     content: '';
     position: absolute;
     top: 2px;
-    left: ${props => props.active ? '22px' : '2px'};
+    left: ${props => props.$active ? '22px' : '2px'};
     width: 20px;
     height: 20px;
     background-color: white;
@@ -417,7 +417,7 @@ const RunTestModal = ({ isOpen, onClose, test, onTestRun }) => {
             <ToggleContainer>
               <ToggleLabel>Run in Headless Mode</ToggleLabel>
               <ToggleSwitch
-                active={config.headless}
+                $active={config.headless}
                 onClick={() => handleConfigChange('headless', !config.headless)}
               />
             </ToggleContainer>

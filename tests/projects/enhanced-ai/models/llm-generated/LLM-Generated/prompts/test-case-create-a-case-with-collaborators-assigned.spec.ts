@@ -1,8 +1,6 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../../../../../../fixtures/self-healing';
 import { allure } from 'allure-playwright';
-
-import { test, expect, Page } from '@playwright/test';
-import * as allure from 'allure-playwright';
+import { Page } from '@playwright/test';
 
 test.describe('Case Management Tests', () => {
   test.beforeEach(async ({ page }) => {

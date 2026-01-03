@@ -53,7 +53,7 @@ const LanguageIcon = styled(FiGlobe)`
 const ChevronIcon = styled(FiChevronDown)`
   font-size: 14px;
   transition: transform 0.2s;
-  transform: ${props => props.isOpen ? 'rotate(180deg)' : 'rotate(0deg)'};
+  transform: ${props => props.$isOpen ? 'rotate(180deg)' : 'rotate(0deg)'};
 `;
 
 const Dropdown = styled.div`
@@ -165,7 +165,7 @@ const LanguageSwitcher = ({ theme = 'light', size = 'medium' }) => {
       >
         <LanguageIcon />
         <span>{currentLanguage.name}</span>
-        <ChevronIcon isOpen={isOpen} />
+        <ChevronIcon $isOpen={isOpen} />
       </LanguageButton>
 
       {isOpen && (

@@ -1,0 +1,44 @@
+[
+  {
+    "originalStep": "try to login with register",
+    "error": "Step not recognized by basic interpreter",
+    "healedCode": "await page.locator('[name=\"customer.username\"]').fill('testuser');\nawait page.locator('[name=\"customer.password\"]').fill('password123');\nawait page.locator('[name=\"repeatedPassword\"]').fill('password123');\nawait page.locator('[name=\"customer.firstName\"]').fill('Test');\nawait page.locator('[name=\"customer.lastName\"]').fill('User');\nawait page.locator('[name=\"customer.address.street\"]').fill('123 Test St');\nawait page.locator('[name=\"customer.address.city\"]').fill('Test City');\nawait page.locator('[name=\"customer.address.state\"]').fill('CA');\nawait page.locator('[name=\"customer.address.zipCode\"]').fill('12345');\nawait page.locator('[name=\"customer.phoneNumber\"]').fill('555-1234');\nawait page.locator('[name=\"customer.ssn\"]').fill('123-45-6789');\nawait page.locator('input.button[value=\"Register\"]').click();",
+    "timestamp": "2026-01-03T12:10:45.202Z",
+    "url": "https://parabank.parasoft.com/parabank/register.htm"
+  },
+  {
+    "originalStep": "await page.click(\"getByRole('link', { name: 'Register' })\")",
+    "error": "page.apply: Unsupported token \"{\" while parsing css selector \"getByRole('link', { name: 'Register' })\". Did you mean to CSS.escape it?\nCall log:\n\u001b[2m  - waiting for getByRole('link', { name: 'Register' })\u001b[22m\n",
+    "healedCode": "await page.getByRole('link', { name: 'Register' }).click();",
+    "timestamp": "2026-01-03T12:32:23.421Z",
+    "url": "https://parabank.parasoft.com/parabank/register.htm;jsessionid=7A71B1D8753722F1062FE02FCEC90495"
+  },
+  {
+    "originalStep": "await page.click(\"getByRole('link', { name: 'Register' })\")",
+    "error": "page.apply: Unsupported token \"{\" while parsing css selector \"getByRole('link', { name: 'Register' })\". Did you mean to CSS.escape it?\nCall log:\n\u001b[2m  - waiting for getByRole('link', { name: 'Register' })\u001b[22m\n",
+    "healedCode": "await page.getByRole('link', { name: 'Register' }).click();",
+    "timestamp": "2026-01-03T12:53:15.322Z",
+    "url": "https://parabank.parasoft.com/parabank/register.htm;jsessionid=C794A01A923BD93EDA2A959D8D79410A"
+  },
+  {
+    "originalStep": "await page.fill(\"getByTestId('username')\", \"testuser123\")",
+    "error": "page.apply: Unexpected token \"getByTestId(\" while parsing css selector \"getByTestId('username')\". Did you mean to CSS.escape it?\nCall log:\n\u001b[2m  - waiting for getByTestId('username')\u001b[22m\n",
+    "healedCode": "await page.fill(\"#customer\\\\.username\", \"testuser123\");",
+    "timestamp": "2026-01-03T12:53:21.498Z",
+    "url": "https://parabank.parasoft.com/parabank/register.htm;jsessionid=C794A01A923BD93EDA2A959D8D79410A"
+  },
+  {
+    "originalStep": "await page.click(\"getByRole('link', { name: 'Register' })\")",
+    "error": "page.apply: Unsupported token \"{\" while parsing css selector \"getByRole('link', { name: 'Register' })\". Did you mean to CSS.escape it?\nCall log:\n\u001b[2m  - waiting for getByRole('link', { name: 'Register' })\u001b[22m\n",
+    "healedCode": "await page.getByRole('link', { name: 'Register' }).click();",
+    "timestamp": "2026-01-03T12:59:45.527Z",
+    "url": "https://parabank.parasoft.com/parabank/register.htm;jsessionid=FFC37E9111EBA9CE0A95C6CA7D3BD3EB"
+  },
+  {
+    "originalStep": "await page.click(\"getByRole('link', { name: 'Register' })\")",
+    "error": "page.apply: Unsupported token \"{\" while parsing css selector \"getByRole('link', { name: 'Register' })\". Did you mean to CSS.escape it?\nCall log:\n\u001b[2m  - waiting for getByRole('link', { name: 'Register' })\u001b[22m\n",
+    "healedCode": "await page.getByRole('link', { name: 'Register' }).click();",
+    "timestamp": "2026-01-03T13:08:12.851Z",
+    "url": "https://parabank.parasoft.com/parabank/register.htm;jsessionid=A9B5776E14E5505C8FD923A330256585"
+  }
+]

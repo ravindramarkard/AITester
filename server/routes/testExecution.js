@@ -293,6 +293,18 @@ router.post('/run', async (req, res) => {
           console.log('USERNAME:', env.USERNAME);
           console.log('PASSWORD:', env.PASSWORD ? '[REDACTED]' : 'Not set');
         }
+
+        // Add LLM Configuration for Self-Healing
+        if (environmentConfig && environmentConfig.llmConfiguration) {
+           const llmConfig = environmentConfig.llmConfiguration;
+           if (llmConfig.enabled !== false) {
+             env.LLM_PROVIDER = llmConfig.provider || env.LLM_PROVIDER;
+             env.LLM_API_KEY = llmConfig.apiKey || env.LLM_API_KEY;
+             env.LLM_MODEL = llmConfig.model || env.LLM_MODEL;
+             env.LLM_BASE_URL = llmConfig.baseUrl || env.LLM_BASE_URL;
+             console.log('LLM Configuration set for self-healing:', llmConfig.provider);
+           }
+        }
         
         console.log('Setting PLAYWRIGHT_BROWSERS_PATH to:', env.PLAYWRIGHT_BROWSERS_PATH);
         

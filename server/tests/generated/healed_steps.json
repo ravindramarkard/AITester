@@ -1,0 +1,37 @@
+[
+  {
+    "originalStep": "go to this url https://parabank.parasoft.com/parabank/index.htm?conntype=jdbc",
+    "error": "Step not recognized by basic interpreter",
+    "healedCode": "await page.goto('https://parabank.parasoft.com/parabank/index.htm?conntype=jdbc');",
+    "timestamp": "2026-01-03T11:45:41.211Z",
+    "url": "https://parabank.parasoft.com/parabank/index.htm?"
+  },
+  {
+    "originalStep": "go to this url https://parabank.parasoft.com/parabank/index.htm?conntype=jdbc",
+    "error": "Step not recognized by basic interpreter",
+    "healedCode": "await page.goto('https://parabank.parasoft.com/parabank/index.htm?conntype=jdbc');",
+    "timestamp": "2026-01-03T11:49:08.465Z",
+    "url": "https://parabank.parasoft.com/parabank/index.htm?"
+  },
+  {
+    "originalStep": "go to this url https://parabank.parasoft.com/parabank/index.htm?conntype=jdbc",
+    "error": "Step not recognized by basic interpreter",
+    "healedCode": "await page.goto('https://parabank.parasoft.com/parabank/index.htm?conntype=jdbc');",
+    "timestamp": "2026-01-03T11:52:23.403Z",
+    "url": "https://parabank.parasoft.com/parabank/index.htm?"
+  },
+  {
+    "originalStep": "try to login with register",
+    "error": "Step not recognized by basic interpreter",
+    "healedCode": "await page.locator('[name=\"customer.firstName\"]').fill('John');\nawait page.locator('[name=\"customer.lastName\"]').fill('Doe');\nawait page.locator('[name=\"customer.address.street\"]').fill('123 Main St');\nawait page.locator('[name=\"customer.address.city\"]').fill('Anytown');\nawait page.locator('[name=\"customer.address.state\"]').fill('CA');\nawait page.locator('[name=\"customer.address.zipCode\"]').fill('12345');\nawait page.locator('[name=\"customer.phoneNumber\"]').fill('555-1234');\nawait page.locator('[name=\"customer.ssn\"]').fill('123-45-6789');\nawait page.locator('[name=\"customer.username\"]').fill('testuser');\nawait page.locator('[name=\"customer.password\"]').fill('password123');\nawait page.locator('[name=\"repeatedPassword\"]').fill('password123');\nawait page.locator('input.button[value=\"Register\"]').click();",
+    "timestamp": "2026-01-03T11:56:26.591Z",
+    "url": "https://parabank.parasoft.com/parabank/register.htm"
+  },
+  {
+    "originalStep": "try to login with register",
+    "error": "Step not recognized by basic interpreter",
+    "healedCode": "await page.locator('[name=\"customer.firstName\"]').fill('John');\nawait page.locator('[name=\"customer.lastName\"]').fill('Doe');\nawait page.locator('[name=\"customer.address.street\"]').fill('123 Main St');\nawait page.locator('[name=\"customer.address.city\"]').fill('Anytown');\nawait page.locator('[name=\"customer.address.state\"]').fill('CA');\nawait page.locator('[name=\"customer.address.zipCode\"]').fill('12345');\nawait page.locator('[name=\"customer.phoneNumber\"]').fill('555-1234');\nawait page.locator('[name=\"customer.ssn\"]').fill('123-45-6789');\nawait page.locator('[name=\"customer.username\"]').fill('testuser');\nawait page.locator('[name=\"customer.password\"]').fill('password123');\nawait page.locator('[name=\"repeatedPassword\"]').fill('password123');\nawait page.locator('input.button[value=\"Register\"]').click();",
+    "timestamp": "2026-01-03T12:01:45.545Z",
+    "url": "https://parabank.parasoft.com/parabank/register.htm"
+  }
+]

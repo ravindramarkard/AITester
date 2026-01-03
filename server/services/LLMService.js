@@ -157,17 +157,87 @@ class LLMService {
     return await this.generatePlaywrightCode(llmClient, prompt, { ...options, domAnalysis });
   }
 
+  async generateText(userPrompt, systemPrompt, environment) {
+    const { llmConfiguration } = environment || {};
+    
+    if (!llmConfiguration) {
+      throw new Error('LLM configuration not found for this environment');
+    }
+    
+    // If enabled is not explicitly set to false, consider it enabled
+    if (llmConfiguration.enabled === false) {
+      throw new Error('LLM configuration not enabled for this environment');
+    }
+
+    const { provider, llmProvider, apiKey, model, baseUrl: configBaseUrl } = llmConfiguration;
+    
+    // Determine the actual provider to use
+    const actualProvider = provider === 'local' ? llmProvider : provider;
+    const llmType = provider === 'local' ? 'local' : 'cloud';
+
+    if (!actualProvider) {
+      throw new Error('LLM provider not specified');
+    }
+
+    // Get the appropriate client
+    const client = this.providers[actualProvider.toLowerCase()];
+    if (!client) {
+      // For local providers, try to use the local client
+      if (llmType === 'local') {
+        const localClient = this.providers['local'];
+        if (localClient) {
+          const llmClient = localClient({
+            apiKey: apiKey || '',
+            model: model || this.getDefaultModel(actualProvider),
+            baseUrl: configBaseUrl || this.getDefaultBaseUrl(actualProvider)
+          });
+          return await this.executeGenerate(llmClient, userPrompt, systemPrompt);
+        }
+      }
+      throw new Error(`Unsupported LLM provider: ${actualProvider}`);
+    }
+
+    // Create client instance
+    const llmClient = client({
+      apiKey: llmType === 'local' ? (apiKey || '') : apiKey,
+      model: model || this.getDefaultModel(actualProvider),
+      baseUrl: configBaseUrl || this.getDefaultBaseUrl(actualProvider)
+    });
+
+    return await this.executeGenerate(llmClient, userPrompt, systemPrompt);
+  }
+
+  async executeGenerate(llmClient, userPrompt, systemPrompt) {
+    try {
+      // Use retry logic for the LLM generation call
+      const response = await RetryHelper.withRetry(async () => {
+        return await llmClient.generate({
+          systemPrompt,
+          userPrompt,
+          temperature: 0.1, // Low temperature for consistent code generation
+          maxTokens: 4000
+        });
+      });
+
+      return response;
+    } catch (error) {
+      console.error('LLM text generation error:', error);
+      throw new Error(`Failed to generate text with LLM: ${error.message}`);
+    }
+  }
+
   async generatePlaywrightCode(llmClient, prompt, options = {}) {
     const {
       testName = 'Generated Test',
       testType = 'UI Test',
       baseUrl = process.env.BASE_URL || 'http://localhost:5050',
       environment = null,
-      domAnalysis = null
+      domAnalysis = null,
+      systemPrompt: providedSystemPrompt
     } = options;
 
     // Create the system prompt for code generation
-    const systemPrompt = this.createSystemPrompt(testType, baseUrl, environment, domAnalysis);
+    const systemPrompt = providedSystemPrompt || this.createSystemPrompt(testType, baseUrl, environment, domAnalysis);
     
     // Create the user prompt with context
     const userPrompt = this.createUserPrompt(prompt, testName, testType, domAnalysis);
@@ -272,7 +342,9 @@ CRITICAL: Only use selectors that actually exist on the page as shown above.`;
 
 REQUIREMENTS:
 - Use TypeScript with Playwright
-- Include proper imports and setup
+- Import the self-healing fixture: import { test, expect } from '../../../../../../fixtures/self-healing'
+- Do NOT import from '@playwright/test' directly for 'test' object, only for types if needed.
+- Include Allure reporting: import { allure } from 'allure-playwright'
 - ONLY use selectors provided in the AVAILABLE PAGE ELEMENTS section below
 - For text selectors, use: page.getByText('text') or page.locator('text=text')
 - For multiple selectors, use separate locators or proper CSS syntax
@@ -281,20 +353,39 @@ REQUIREMENTS:
 - Include Allure reporting integration with allure.attachment() method (NOT allure.addAttachment())
 - Use environment variables for configuration${domContext}
 
-CRITICAL SELECTOR RULES - AVOID ELEMENT AMBIGUITY:
-- NEVER use getByText() for common text that appears multiple times (e.g., 'Dashboard', 'Home', 'Login', 'Submit')
-- ALWAYS prefer specific role-based selectors over generic text selectors
-- For headings: use page.getByRole('heading', { name: 'Text' }) instead of getByText('Text')
-- For buttons: use page.getByRole('button', { name: 'Text' }) instead of getByText('Text')
-- For links: use page.getByRole('link', { name: 'Text' }) instead of getByText('Text')
-- For form inputs: use page.getByLabel('Label') or page.getByPlaceholder('Placeholder')
-- For navigation items: combine role with specific attributes like page.getByRole('navigation').getByText('Item')
-- Use CSS selectors with :has-text() for precise targeting: page.locator('selector:has-text("Text")')
-- Use data-testid when available: page.getByTestId('element-id')
-- Combine selectors for specificity: page.locator('.class-name').getByRole('button', { name: 'Text' })
-- For tables: use page.getByRole('cell', { name: 'Text' }) or page.getByRole('row')
-- For modals/dialogs: use page.getByRole('dialog') or page.locator('[role="dialog"]')
-- When text appears in multiple contexts, use parent container selectors first
+CRITICAL SELECTOR RULES - STRICT HIERARCHY:
+1. getByRole (HIGHEST PRIORITY):
+   - Use page.getByRole('button', { name: 'Submit' })
+   - Use page.getByRole('link', { name: 'Home' })
+   - Use page.getByRole('heading', { name: 'Title' })
+   - Use page.getByRole('combobox', { name: 'Select' })
+   - Use page.getByRole('checkbox', { name: 'Agree' })
+   
+2. getByLabel:
+   - Use page.getByLabel('Username')
+   - Use page.getByLabel('Password')
+
+3. getByText:
+   - Use page.getByText('Some visible text')
+   - Avoid for common words like "Submit" or "Cancel" if multiple exist
+   
+4. Stable Attributes (data-testid):
+   - Use page.getByTestId('submit-btn')
+   - Use page.locator('[data-testid="submit-btn"]')
+
+5. CSS Selectors (Low Priority):
+   - Use page.locator('button.primary')
+   - Use page.locator('#submit-id')
+   - Use page.locator('form >> button')
+
+6. XPath (Last Resort):
+   - Only use if no other selector works
+   - Use page.locator('//button[text()="Submit"]')
+
+ADDITIONAL RULES:
+- NEVER use generic selectors like 'button', 'input', 'div' without specific attributes
+- Use :has-text() for precise CSS targeting: page.locator('button:has-text("Submit")')
+- Combine selectors for specificity: page.locator('.modal').getByRole('button', { name: 'Close' })
 
 DROPDOWN/COMBOBOX INTERACTION RULES - CRITICAL FOR RELIABILITY:
 - ALWAYS wait for dropdown elements before interaction: await page.getByRole('combobox').waitFor({ state: 'visible', timeout: 15000 })
@@ -345,6 +436,106 @@ CRITICAL PLAYWRIGHT SYNTAX RULES:
   });
 
 Return ONLY the complete TypeScript test file code, no explanations or markdown formatting.`;
+  }
+
+  async generateAutomationPlan(prompt, domAnalysis, environment) {
+    console.log('=== Generating Automation Plan ===');
+    const { llmConfiguration } = environment || {};
+    if (!llmConfiguration) throw new Error('LLM configuration missing');
+
+    const { provider, llmProvider, apiKey, model, baseUrl } = llmConfiguration;
+    const actualProvider = provider === 'local' ? llmProvider : provider;
+
+    let domContext = '';
+    if (domAnalysis && domAnalysis.elements.length > 0) {
+      domContext = `
+AVAILABLE PAGE ELEMENTS (Copy attributes EXACTLY):
+${domAnalysis.elements.map(el => {
+        const safeAttrs = {...(el.attributes || {})};
+        const id = safeAttrs.id;
+        const name = safeAttrs.name;
+        const testId = safeAttrs['data-testid'];
+        
+        let info = `- <${el.tagName}`;
+        if (id) info += ` id="${id}"`;
+        if (name) info += ` name="${name}"`;
+        if (testId) info += ` data-testid="${testId}"`;
+        
+        // Add other attributes
+        const otherAttrs = Object.entries(safeAttrs)
+          .filter(([k]) => !['id', 'name', 'data-testid'].includes(k))
+          .map(([k, v]) => `${k}="${v}"`)
+          .join(' ');
+          
+        if (otherAttrs) info += ` ${otherAttrs}`;
+        
+        info += `> (Text: "${el.text || ''}", Label: "${el.label || ''}")`;
+        return info;
+      }).join('\n')}
+`;
+    }
+
+    const systemPrompt = `You are an AI Automation Planner.
+Your goal is to convert the user's natural language request into a sequence of executable Playwright steps.
+
+INPUT:
+1. User Request: "${prompt}"
+2. Page Context: Current DOM elements (provided below).
+
+OUTPUT:
+Return a strictly valid JSON array of objects. No markdown, no explanations.
+Each object must have:
+- "description": A short human-readable description of the step.
+- "code": The exact Playwright code to execute (e.g., "await page.click(...)").
+- "selector": The selector used in the code (for highlighting), or null if none.
+
+RULES:
+- Use the provided DOM elements to choose valid selectors.
+- DO NOT GUESS ATTRIBUTES. If you use 'name' or 'id', copy the value EXACTLY from the Page Context (e.g., if name="customer.firstName", DO NOT use name="firstname").
+- STRICTLY follow this selector priority:
+  1. getByRole (e.g., getByRole('button', { name: 'Submit' }))
+  2. getByLabel (e.g., getByLabel('Username'))
+  3. getByPlaceholder (e.g., getByPlaceholder('Enter your name'))
+  4. getByText (e.g., getByText('Welcome'))
+  5. Exact Attribute Match (e.g., page.locator('[name="customer.firstName"]'))
+  6. Stable Attributes (e.g., getByTestId('id'), [data-testid="id"])
+  7. CSS Selectors (e.g., .class, #id)
+  8. XPath (Last resort)
+- Include 'await' in the code.
+- Do NOT wrap in 'test(...)' block. Just the individual action lines.
+- For assertions, use 'expect(...)'.
+
+${domContext}`;
+
+    // Select provider client
+    let createClient;
+    if (this.providers[actualProvider]) {
+      createClient = this.providers[actualProvider];
+    } else if (this.providers[provider]) {
+       createClient = this.providers[provider];
+    } else {
+       throw new Error(`Unsupported provider: ${actualProvider || provider}`);
+    }
+
+    const client = createClient({ apiKey, baseUrl, model });
+    
+    try {
+       const response = await RetryHelper.withRetry(() => client.generate({
+         systemPrompt,
+         userPrompt: `Plan the automation for: "${prompt}"`,
+         maxTokens: 2000
+       }));
+
+       // Extract JSON from response
+       let content = response;
+       // Clean markdown code blocks if present
+       content = content.replace(/```json/g, '').replace(/```/g, '').trim();
+       
+       return JSON.parse(content);
+    } catch (error) {
+       console.error('Failed to generate automation plan:', error);
+       throw error;
+    }
   }
 
   createUserPrompt(prompt, testName, testType, domAnalysis) {

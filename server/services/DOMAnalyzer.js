@@ -297,28 +297,61 @@ class DOMAnalyzer {
     }
   }
 
+  _nameVariants(text) {
+    const variants = new Set([text]);
+    // camelCase
+    variants.add(text.replace(/-(\w)/g, (_, c) => c.toUpperCase()));
+    variants.add(text.replace(/_(\w)/g, (_, c) => c.toUpperCase()));
+    // snake_case
+    variants.add(text.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase());
+    // kebab-case
+    variants.add(text.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase());
+    // Remove spaces
+    variants.add(text.replace(/\s+/g, ''));
+    return Array.from(variants);
+  }
+
+  generateSelectors(text) {
+      return [
+          `[aria-label="${text}"]`,
+          `[title="${text}"]`,
+          `img[alt="${text}"]`
+      ];
+  }
+
   generateSelectorCandidates(target) {
     const normalized = String(target).trim();
     const lower = normalized.toLowerCase();
     const out = new Set();
-    // Highest priority: explicit labels and roles
-    out.add(`getByLabel=${normalized}`);
-    out.add(`getByRole=textbox:${normalized}`);
+    
+    // 1. Role-based (Highest priority)
     out.add(`getByRole=button:${normalized}`);
-    // Common name/id variants
+    out.add(`getByRole=link:${normalized}`);
+    out.add(`getByRole=textbox:${normalized}`);
+    
+    // 2. Label-based
+    out.add(`getByLabel=${normalized}`);
+    
+    // 3. Text-based
+    out.add(`text=${normalized}`);
+    out.add(`getByText=${normalized}`);
+
+    // 4. Test ID (Stable attributes)
+    out.add(`css=[data-testid="${normalized}"]`);
+    out.add(`getByTestId=${normalized}`);
+    
+    // 5. CSS/XPath (Fallback)
     for (const v of this._nameVariants(lower)) {
       out.add(`css=[name="${v}"]`);
       out.add(`#${v}`);
-      out.add(`css=[data-testid="${v}"]`);
       out.add(`css=input[id*="${v}"]`);
     }
-    // Aria label
     out.add(`css=[aria-label*="${normalized}"]`);
-    // Base strategies from existing heuristics
-    this.generateSelectors(lower).forEach(s => out.add(s));
-    // Lowest priority: placeholder/text fallbacks
     out.add(`css=[placeholder*="${normalized}" i]`);
-    out.add(`text=${normalized}`);
+    
+    // Base strategies
+    this.generateSelectors(lower).forEach(s => out.add(s));
+    
     return Array.from(out);
   }
 
@@ -328,35 +361,57 @@ class DOMAnalyzer {
       let selector = cand;
       let score = 0;
       try {
-        // Support pseudo getBy* shortcuts
-        if (cand.startsWith('getByLabel=')) {
-          const label = cand.slice('getByLabel='.length);
-          const loc = this.page.getByLabel(new RegExp(label, 'i'));
-          const count = await loc.count();
-          selector = loc;
-          score = count > 0 ? 110 - Math.min(count - 1, 100) : 0;
-        } else if (cand.startsWith('getByRole=')) {
+        // 1. getByRole (Priority: 120)
+        if (cand.startsWith('getByRole=')) {
           const [_, rest] = cand.split('=');
           const [role, name] = rest.split(':');
           const loc = this.page.getByRole(role, { name: new RegExp(name, 'i') });
           const count = await loc.count();
           selector = loc;
-          score = count > 0 ? 100 - Math.min(count - 1, 90) : 0;
-        } else if (cand.startsWith('css=')) {
-          const css = cand.slice(4);
-          const count = await this.page.locator(css).count();
-          selector = css;
-          score = count > 0 ? 90 - Math.min(count - 1, 70) : 0;
-        } else if (cand.startsWith('text=')) {
-          const text = cand.slice(5);
+          score = count > 0 ? 120 - Math.min(count - 1, 100) : 0;
+        } 
+        // 2. getByLabel (Priority: 110)
+        else if (cand.startsWith('getByLabel=')) {
+          const label = cand.slice('getByLabel='.length);
+          const loc = this.page.getByLabel(new RegExp(label, 'i'));
+          const count = await loc.count();
+          selector = loc;
+          score = count > 0 ? 110 - Math.min(count - 1, 90) : 0;
+        }
+        // 3. getByText (Priority: 100)
+        else if (cand.startsWith('text=') || cand.startsWith('getByText=')) {
+          const text = cand.replace(/^(text=|getByText=)/, '');
           const loc = this.page.getByText(new RegExp(text, 'i'));
           const count = await loc.count();
           selector = loc;
-          score = count > 0 ? 40 - Math.min(count - 1, 30) : 0;
+          score = count > 0 ? 100 - Math.min(count - 1, 80) : 0;
+        }
+        // 4. Test ID (Priority: 90)
+        else if (cand.startsWith('getByTestId=')) {
+            const testId = cand.slice('getByTestId='.length);
+            const loc = this.page.getByTestId(testId);
+            const count = await loc.count();
+            selector = loc;
+            score = count > 0 ? 90 - Math.min(count - 1, 70) : 0;
+        }
+        else if (cand.includes('data-testid')) {
+            // CSS with data-testid
+            const css = cand.startsWith('css=') ? cand.slice(4) : cand;
+            const count = await this.page.locator(css).count();
+            selector = css;
+            score = count > 0 ? 90 - Math.min(count - 1, 70) : 0;
+        }
+        // 5. CSS/XPath (Priority: 80)
+        else if (cand.startsWith('css=')) {
+          const css = cand.slice(4);
+          const count = await this.page.locator(css).count();
+          selector = css;
+          score = count > 0 ? 80 - Math.min(count - 1, 60) : 0;
         } else {
+          // Generic locator
           const count = await this.page.locator(cand).count();
           selector = cand;
-          score = count > 0 ? 70 - Math.min(count - 1, 60) : 0;
+          score = count > 0 ? 70 - Math.min(count - 1, 50) : 0;
         }
       } catch (_) {
         score = 0;
@@ -403,15 +458,30 @@ class DOMAnalyzer {
       const elements = await this.page.evaluate(() => {
         const interactiveElements = [];
         
+        // Build label->control map
+        const labels = Array.from(document.querySelectorAll('label'));
+        const labelMap = new Map();
+        labels.forEach(label => {
+          const text = (label.textContent || '').trim();
+          let control = null;
+          const forId = label.getAttribute('for');
+          if (forId) control = document.getElementById(forId);
+          if (!control) control = label.querySelector('input, textarea, select');
+          if (text && control) {
+            labelMap.set(control, text);
+          }
+        });
+        
         // Get all input elements
-        const inputs = document.querySelectorAll('input');
+        const inputs = document.querySelectorAll('input, textarea, select');
         inputs.forEach((input, index) => {
           const elementInfo = {
-            type: 'input',
+            type: input.tagName.toLowerCase(),
             tagName: input.tagName.toLowerCase(),
             index,
             attributes: {},
             text: input.value || input.placeholder || '',
+            label: labelMap.get(input) || '',
             selectors: []
           };
           
@@ -433,9 +503,15 @@ class DOMAnalyzer {
           if (input.className) {
             elementInfo.selectors.push(`.${input.className.split(' ').join('.')}`);
           }
+          if (elementInfo.label) {
+             elementInfo.selectors.push(`getByLabel('${elementInfo.label}')`);
+          }
+          if (input.placeholder) {
+             elementInfo.selectors.push(`getByPlaceholder('${input.placeholder}')`);
+          }
           
           // Add generic selector as fallback
-          elementInfo.selectors.push(`input:nth-child(${index + 1})`);
+          elementInfo.selectors.push(`${elementInfo.tagName}:nth-child(${index + 1})`);
           
           interactiveElements.push(elementInfo);
         });
@@ -471,7 +547,7 @@ class DOMAnalyzer {
             elementInfo.selectors.push(`.${button.className.split(' ').join('.')}`);
           }
           if (elementInfo.text) {
-            elementInfo.selectors.push(`button:has-text("${elementInfo.text}")`);
+            elementInfo.selectors.push(`getByRole('button', { name: '${elementInfo.text}' })`);
           }
           
           // Add generic selector as fallback
@@ -504,11 +580,8 @@ class DOMAnalyzer {
           if (link.id) {
             elementInfo.selectors.push(`#${link.id}`);
           }
-          if (link.className) {
-            elementInfo.selectors.push(`.${link.className.split(' ').join('.')}`);
-          }
           if (elementInfo.text) {
-            elementInfo.selectors.push(`a:has-text("${elementInfo.text}")`);
+            elementInfo.selectors.push(`getByRole('link', { name: '${elementInfo.text}' })`);
           }
           
           // Add generic selector as fallback
@@ -629,6 +702,32 @@ class DOMAnalyzer {
         elements: [],
         pageAnalysis: [],
         error: `User journey analysis failed: ${error.message}`
+      };
+    }
+  }
+
+  async analyzeCurrentPage(page) {
+    try {
+      this.page = page;
+      console.log(`Analyzing current page DOM structure: ${page.url()}`);
+      
+      const elements = await this.extractElements();
+      const uniqueElements = this.removeDuplicateElements(elements);
+      
+      return {
+        url: page.url(),
+        timestamp: new Date().toISOString(),
+        elements: uniqueElements,
+        totalElements: uniqueElements.length,
+        pageTitle: await page.title()
+      };
+    } catch (error) {
+      console.warn('Current page analysis failed:', error.message);
+      return {
+        url: page ? page.url() : 'unknown',
+        timestamp: new Date().toISOString(),
+        elements: [],
+        error: error.message
       };
     }
   }

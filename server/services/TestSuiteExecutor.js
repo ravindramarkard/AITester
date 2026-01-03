@@ -75,6 +75,7 @@ class TestSuiteExecutor {
       // Set environment variables from environment configuration
       // Handle both formats: {variables: {...}} and direct {...}
       const envVars = environmentConfig?.variables || environmentConfig || {};
+      const llmConfig = environmentConfig?.llmConfiguration;
       
       console.log('🔧 Environment config received:', JSON.stringify(environmentConfig, null, 2));
       console.log('🔧 Environment variables extracted:', JSON.stringify(envVars, null, 2));
@@ -83,6 +84,11 @@ class TestSuiteExecutor {
         ...process.env,
         // Set Playwright browsers path using env override or default to project .local-browsers
         PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(this.projectRoot, '.local-browsers'),
+        // LLM Configuration for Self-Healing
+        LLM_PROVIDER: llmConfig?.provider || process.env.LLM_PROVIDER,
+        LLM_API_KEY: llmConfig?.apiKey || process.env.LLM_API_KEY,
+        LLM_MODEL: llmConfig?.model || process.env.LLM_MODEL,
+        LLM_BASE_URL: llmConfig?.baseUrl || process.env.LLM_BASE_URL,
         // Use environment config if available, otherwise use defaults
         BASE_URL: envVars.baseUrl || envVars.BASE_URL || 
                  (environment === 'test' ? 'http://localhost:5050' : 

@@ -40,7 +40,7 @@ async function launchRealtimeBrowser(environment) {
 }
 
 // Helper function to perform real-time LLM interaction with open browser
-async function performRealtimeLLMInteraction(testCode, baseUrl, promptContent, parsedSteps = [], environment, preComputedPlan = null) {
+async function performRealtimeLLMInteraction(testCode, baseUrl, promptContent, parsedSteps = [], environment) {
   try {
     console.log('🎭 Starting real-time LLM interaction with open browser...');
     console.log('👀 LLM will now interact with the browser based on your prompt!');
@@ -89,93 +89,49 @@ async function performRealtimeLLMInteraction(testCode, baseUrl, promptContent, p
         try {
             if (!selector) return;
             console.log(`✨ Highlighting element: ${selector}`);
-            
-            let element;
-            // Check if selector is a Playwright locator code snippet (e.g. getByRole, getByText)
-            if (selector.includes('getBy') || selector.includes('locator(') || selector.includes('filter(')) {
-                 try {
-                     // Remove 'page.' prefix if present to avoid duplication if we use page.eval
-                     const cleanSelector = selector.replace(/^page\./, '');
-                     // Create a function to evaluate the locator
-                     // usage: page.getByRole(...)
-                     const locatorFunc = new Function('page', `return page.${cleanSelector}`);
-                     const locator = locatorFunc(page);
-                     if (locator) {
-                        element = locator.first();
-                     }
-                 } catch (e) {
-                     console.log(`⚠️ Complex selector eval failed: ${e.message}, trying as CSS`);
-                 }
-            } 
-            
-            // Fallback or if simple CSS selector
-            if (!element) {
-                try {
-                    element = page.locator(selector).first();
-                } catch (e) {
-                    // Ignore locator creation errors
-                }
-            }
-
-            if (element) {
-                await element.waitFor({ state: 'attached', timeout: 2000 }).catch(() => {});
-                await element.evaluate(el => {
-                    el.style.border = '3px solid #FF00FF';
-                    el.style.boxShadow = '0 0 10px #FF00FF';
-                    el.style.transition = 'all 0.3s ease';
-                }).catch(() => {});
-                await page.waitForTimeout(500);
-            }
+            const element = page.locator(selector).first();
+            await element.waitFor({ state: 'attached', timeout: 2000 }).catch(() => {});
+            await element.evaluate(el => {
+                el.style.border = '3px solid #FF00FF';
+                el.style.boxShadow = '0 0 10px #FF00FF';
+                el.style.transition = 'all 0.3s ease';
+            });
+            await page.waitForTimeout(500);
         } catch (e) {
             // Ignore highlight errors
-            console.log(`⚠️ Highlight failed: ${e.message}`);
         }
     }
 
-    let plannedSteps = preComputedPlan || [];
+    // 1. Analyze DOM
+    console.log('🔍 Analyzing page DOM...');
+    const domAnalyzer = new DOMAnalyzer();
+    const domAnalysis = await domAnalyzer.analyze(page);
 
-    // If no plan provided, generate one
-    if (!plannedSteps.length) {
-        // 1. Analyze DOM
-        console.log('🔍 Analyzing page DOM...');
-        const domAnalyzer = new DOMAnalyzer();
-        const domAnalysis = await domAnalyzer.analyze(page);
-
-        // 2. Plan Steps (LLM)
-        console.log('🤖 Asking LLM to plan steps...');
-        const llmService = new LLMService();
-        try {
-            plannedSteps = await llmService.generateAutomationPlan(promptContent, domAnalysis, environment);
-            console.log(`✅ LLM planned ${plannedSteps.length} steps:`);
-            plannedSteps.forEach((s, i) => console.log(`  ${i+1}. ${s.description}`));
-        } catch (err) {
-            console.error('❌ Plan generation failed:', err);
-            throw err;
-        }
-    } else {
-        console.log(`✅ Using pre-computed plan with ${plannedSteps.length} steps:`);
+    // 2. Plan Steps (LLM)
+    console.log('🤖 Asking LLM to plan steps...');
+    const llmService = new LLMService();
+    let plannedSteps = [];
+    try {
+        plannedSteps = await llmService.generateAutomationPlan(promptContent, domAnalysis, environment);
+        console.log(`✅ LLM planned ${plannedSteps.length} steps:`);
         plannedSteps.forEach((s, i) => console.log(`  ${i+1}. ${s.description}`));
+    } catch (err) {
+        console.error('❌ Plan generation failed:', err);
+        throw err;
     }
 
     // 3. Execute Steps
     const selfHealingService = new SelfHealingService();
-    const executedSteps = [];
-    
-    // Set a shorter timeout for real-time interactions to fail fast and trigger self-healing
-    // Default is usually 30s, which makes it look like it's stuck
-    await page.setDefaultTimeout(5000);
-    console.log('⏱️ Set interaction timeout to 5s for faster self-healing');
 
     for (const step of plannedSteps) {
         console.log(`\n▶️ Executing Step: ${step.description}`);
-        let currentCode = step.code;
         
         // Attempt Highlighting
         if (step.selector) {
             await highlightElement(step.selector);
         } else {
             // Try to extract selector from code if not provided explicitly
-            const match = currentCode.match(/['"]([^'"]+)['"]/); // simplistic
+            const match = step.code.match(/['"]([^'"]+)['"]/); // simplistic
             if (match) await highlightElement(match[1]);
         }
 
@@ -185,13 +141,12 @@ async function performRealtimeLLMInteraction(testCode, baseUrl, promptContent, p
             // We pass 'page' and 'expect' to the function context
             const func = new Function('page', 'expect', `return (async () => { 
                 try {
-                    ${currentCode.trim().startsWith('await') ? '' : 'await'} ${currentCode};
+                    ${step.code.trim().startsWith('await') ? '' : 'await'} ${step.code};
                 } catch (e) { throw e; }
             })();`);
             
             await func(page, expect);
             console.log(`✅ Step passed: ${step.description}`);
-            executedSteps.push({ ...step, status: 'passed' });
             
         } catch (error) {
             console.error(`❌ Step failed: ${step.description}`);
@@ -200,7 +155,7 @@ async function performRealtimeLLMInteraction(testCode, baseUrl, promptContent, p
             // Trigger Self-Healing
             console.log('🩹 Initiating Self-Healing...');
             try {
-                const healedCode = await selfHealingService.healStep(page, error, currentCode, environment);
+                const healedCode = await selfHealingService.healStep(page, error, step.code, environment);
                 
                 if (healedCode) {
                     console.log('🚑 Applying healed code...');
@@ -212,18 +167,16 @@ async function performRealtimeLLMInteraction(testCode, baseUrl, promptContent, p
                     
                     await healFunc(page, expect);
                     console.log('✅ Self-healing recovered the step.');
-                    executedSteps.push({ ...step, code: healedCode, status: 'healed', originalCode: step.code });
                     
                     // Optionally save the healed step if we were recording
                 } else {
                     console.error('❌ Self-healing could not fix the step.');
-                    executedSteps.push({ ...step, status: 'failed', error: error.message });
-                    throw error; // Re-throw to stop execution
+                    throw error; // Re-throw to stop execution or continue?
                 }
             } catch (healError) {
                 console.error('❌ Self-healing failed:', healError);
-                executedSteps.push({ ...step, status: 'failed', error: healError.message });
                 // Decide whether to abort or continue. Usually abort.
+                // But for "Live" demo, maybe we stop.
                 break; 
             }
         }
@@ -237,7 +190,7 @@ async function performRealtimeLLMInteraction(testCode, baseUrl, promptContent, p
 
     return {
       success: true,
-      stepsExecuted: executedSteps,
+      stepsExecuted: plannedSteps.length,
       message: 'Real-time interaction completed successfully'
     };
     
@@ -247,6 +200,250 @@ async function performRealtimeLLMInteraction(testCode, baseUrl, promptContent, p
       success: false,
       error: error.message
     };
+  }
+}
+                  } catch (error) {
+                    console.log('⚠️ Login result timeout - checking current state');
+                  }
+                  
+                  // Check for success or error
+                  try {
+                    const dashboard = page.getByRole('heading', { name: 'Dashboard' });
+                    await dashboard.waitFor({ state: 'visible', timeout: 5000 });
+                    console.log('✅ Login successful - Dashboard found');
+                  } catch (error) {
+                    console.log('❌ Login failed - Checking for error message');
+                    try {
+                      const errorMsg = page.locator('.oxd-alert-content-text');
+                      if (await errorMsg.isVisible()) {
+                        const errorText = await errorMsg.textContent();
+                        console.log('⚠️ Error message found:', errorText);
+                      }
+                    } catch (error2) {
+                      console.log('⚠️ No specific error message found');
+                    }
+                  }
+                }
+                
+                // Check if this is an HR admin workflow
+                else if (promptContent.toLowerCase().includes('admin') && promptContent.toLowerCase().includes('add')) {
+                  console.log('👥 Performing HR Admin workflow...');
+                  
+                  // First, we need to login
+                  console.log('🔐 Step 1: Login first...');
+                  
+                  // Username field
+                  const usernameField = page.getByPlaceholder('Username');
+                  await usernameField.waitFor({ state: 'visible', timeout: 10000 });
+                  await highlightElement(usernameField);
+                  await usernameField.fill('Admin');
+                  console.log('✅ Username filled');
+                  
+                  // Wait for username field to be ready
+                  await usernameField.waitFor({ state: 'visible' });
+                  
+                  // Password field
+                  const passwordField = page.getByPlaceholder('Password');
+                  await passwordField.waitFor({ state: 'visible', timeout: 10000 });
+                  await highlightElement(passwordField);
+                  await passwordField.fill('admin123');
+                  console.log('✅ Password filled');
+                  
+                  // Wait for password field to be ready
+                  await passwordField.waitFor({ state: 'visible' });
+                  
+                  // Login button
+                  const loginButton = page.getByRole('button', { name: 'Login' });
+                  await loginButton.waitFor({ state: 'visible', timeout: 10000 });
+                  await highlightElement(loginButton);
+                  await loginButton.click();
+                  console.log('✅ Login button clicked');
+                  
+                  // Wait for dashboard to appear (smart wait)
+                  await page.getByRole('heading', { name: 'Dashboard' }).waitFor({ state: 'visible', timeout: 10000 });
+                  console.log('✅ Logged in successfully');
+                  
+                  // Step 2: Click Admin from sidebar
+                  console.log('👤 Step 2: Clicking Admin from sidebar...');
+                  const adminLink = page.locator('text=Admin').first();
+                  await adminLink.waitFor({ state: 'visible', timeout: 10000 });
+                  await highlightElement(adminLink);
+                  await adminLink.click();
+                  console.log('✅ Admin link clicked');
+                  
+                  // Wait for Admin page to load (smart wait)
+                  await page.waitForLoadState('networkidle');
+                  console.log('✅ Admin page loaded');
+                  
+                  // Step 3: Click Add button
+                  console.log('➕ Step 3: Clicking Add button...');
+                  const addButton = page.locator('button:has-text("Add")').first();
+                  await addButton.waitFor({ state: 'visible', timeout: 10000 });
+                  await highlightElement(addButton);
+                  await addButton.click();
+                  console.log('✅ Add button clicked');
+                  
+                  // Wait for Add User form to load (smart wait)
+                  await page.waitForLoadState('networkidle');
+                  console.log('✅ Add User form loaded');
+                  
+                  // Step 4: Select User Role: Admin
+                  console.log('👑 Step 4: Selecting User Role as Admin...');
+                  const userRoleDropdown = page.locator('.oxd-select-text').first();
+                  await userRoleDropdown.waitFor({ state: 'visible', timeout: 10000 });
+                  await highlightElement(userRoleDropdown);
+                  await userRoleDropdown.click();
+                  
+                  // Wait for dropdown options to appear (smart wait)
+                  const adminOption = page.locator('text=Admin').first();
+                  await adminOption.waitFor({ state: 'visible', timeout: 5000 });
+                  await highlightElement(adminOption);
+                  await adminOption.click();
+                  console.log('✅ User Role selected as Admin');
+                  
+                  // Wait for selection to be applied (smart wait)
+                  await userRoleDropdown.waitFor({ state: 'visible' });
+                  console.log('✅ User Role selection applied');
+                  
+                  // Step 5: Enter Employee Name
+                  console.log('👤 Step 5: Entering Employee Name...');
+                  const employeeNameField = page.locator('input[placeholder*="Employee Name"]').first();
+                  await employeeNameField.waitFor({ state: 'visible', timeout: 10000 });
+                  await highlightElement(employeeNameField);
+                  await employeeNameField.fill('FirstAutomation123');
+                  console.log('✅ Employee Name filled');
+                  
+                  // Wait for employee name field to be ready (smart wait)
+                  await employeeNameField.waitFor({ state: 'visible' });
+                  console.log('✅ Employee Name field is ready');
+                  
+                  // Step 6: Select Status: Enabled
+                  console.log('✅ Step 6: Selecting Status as Enabled...');
+                  const statusDropdown = page.locator('.oxd-select-text').nth(1);
+                  await statusDropdown.waitFor({ state: 'visible', timeout: 10000 });
+                  await highlightElement(statusDropdown);
+                  await statusDropdown.click();
+                  
+                  // Wait for status dropdown options to appear (smart wait)
+                  const enabledOption = page.locator('text=Enabled').first();
+                  await enabledOption.waitFor({ state: 'visible', timeout: 5000 });
+                  await highlightElement(enabledOption);
+                  await enabledOption.click();
+                  console.log('✅ Status selected as Enabled');
+                  
+                  // Wait for status selection to be applied (smart wait)
+                  await statusDropdown.waitFor({ state: 'visible' });
+                  console.log('✅ Status selection applied');
+                  
+                  // Step 7: Enter Username
+                  console.log('👤 Step 7: Entering Username...');
+                  const usernameField2 = page.locator('input[placeholder*="Username"]').first();
+                  await usernameField2.waitFor({ state: 'visible', timeout: 10000 });
+                  await highlightElement(usernameField2);
+                  await usernameField2.fill('ravi11');
+                  console.log('✅ Username filled');
+                  
+                  // Wait for username field to be ready (smart wait)
+                  await usernameField2.waitFor({ state: 'visible' });
+                  console.log('✅ Username field is ready');
+                  
+                  // Step 8: Enter Password
+                  console.log('🔒 Step 8: Entering Password...');
+                  const passwordField2 = page.locator('input[type="password"]').first();
+                  await passwordField2.waitFor({ state: 'visible', timeout: 10000 });
+                  await highlightElement(passwordField2);
+                  await passwordField2.fill('ravi12311');
+                  console.log('✅ Password filled');
+                  
+                  // Wait for password field to be ready (smart wait)
+                  await passwordField2.waitFor({ state: 'visible' });
+                  console.log('✅ Password field is ready');
+                  
+                  // Step 9: Enter Confirm Password
+                  console.log('🔒 Step 9: Entering Confirm Password...');
+                  const confirmPasswordField = page.locator('input[type="password"]').nth(1);
+                  await confirmPasswordField.waitFor({ state: 'visible', timeout: 10000 });
+                  await highlightElement(confirmPasswordField);
+                  await confirmPasswordField.fill('ravi123343');
+                  console.log('✅ Confirm Password filled');
+                  
+                  // Wait for confirm password field to be ready (smart wait)
+                  await confirmPasswordField.waitFor({ state: 'visible' });
+                  console.log('✅ Confirm Password field is ready');
+                  
+                  // Step 10: Click Save button
+                  console.log('💾 Step 10: Clicking Save button...');
+                  const saveButton = page.locator('button[type="submit"]').first();
+                  await saveButton.waitFor({ state: 'visible', timeout: 10000 });
+                  await highlightElement(saveButton);
+                  await saveButton.click();
+                  console.log('✅ Save button clicked');
+                  
+                  // Wait for save result (smart wait)
+                  try {
+                    // Wait for either success message or error message
+                    await Promise.race([
+                      page.locator('.oxd-toast-content').waitFor({ state: 'visible', timeout: 10000 }),
+                      page.locator('.oxd-alert-content-text').waitFor({ state: 'visible', timeout: 10000 }),
+                      page.waitForLoadState('networkidle')
+                    ]);
+                    console.log('✅ Save operation completed');
+                  } catch (error) {
+                    console.log('⚠️ Save operation timeout - checking current state');
+                  }
+                  console.log('✅ HR Admin workflow completed!');
+                }
+                
+                // Default action for other prompts
+                else {
+                  console.log('🎯 Performing general actions based on prompt...');
+                  console.log('📝 Prompt content:', promptContent);
+                  
+                  // Try to find any interactive elements and perform basic actions
+                  try {
+                    const buttons = await page.locator('button').count();
+                    const inputs = await page.locator('input').count();
+                    const links = await page.locator('a').count();
+                    
+                    console.log(`🔍 Found ${buttons} buttons, ${inputs} inputs, ${links} links`);
+                    
+                    if (buttons > 0) {
+                      console.log('🔘 Clicking first available button...');
+                      const firstButton = page.locator('button').first();
+                      await firstButton.click();
+                      console.log('✅ Button clicked');
+                    }
+                  } catch (error) {
+                    console.log('⚠️ Could not perform general actions:', error.message);
+                  }
+                }
+    
+                // Take screenshot
+                console.log('📸 Taking screenshot...');
+                const screenshotDir = path.join(__dirname, '../screenshots');
+                if (!fs.existsSync(screenshotDir)) {
+                    fs.mkdirSync(screenshotDir, { recursive: true });
+                }
+                const screenshotPath = path.join(screenshotDir, 'realtime-llm-interaction.png');
+                await page.screenshot({ path: screenshotPath });
+                console.log('✅ Screenshot saved');
+                
+                // Wait for any final UI updates (smart wait)
+                console.log('👀 Waiting for final UI updates...');
+                try {
+                  await page.waitForLoadState('networkidle', { timeout: 3000 });
+                  console.log('✅ Final UI state stabilized');
+                } catch (error) {
+                  console.log('⚠️ Final UI wait timeout - proceeding');
+                }
+    
+    // Close browser
+    await browser.close();
+    console.log('🔚 Browser closed');
+    
+  } catch (error) {
+    console.error('❌ Error in real-time LLM interaction:', error);
+    throw error;
   }
 }
 
@@ -452,6 +649,13 @@ async function processLLMWithRealtimeBrowser(options) {
       console.log(`   - Page title: ${domAnalysisResult.pageTitle || 'Unknown'}`);
       console.log(`   - Form fields: ${domAnalysisResult.formFields?.length || 0}`);
       
+      // Log some example elements found
+      if (domAnalysisResult.elements && domAnalysisResult.elements.length > 0) {
+        console.log('📋 Sample elements discovered:');
+        domAnalysisResult.elements.slice(0, 5).forEach((el, idx) => {
+          console.log(`   ${idx + 1}. ${el.type}: ${el.text || el.attributes.placeholder || el.attributes.name || 'unnamed'}`);
+        });
+      }
     } catch (domError) {
       console.warn('⚠️ DOM analysis failed:', domError.message);
       console.log('Continuing without DOM analysis...');
@@ -464,104 +668,195 @@ async function processLLMWithRealtimeBrowser(options) {
       }
     }
     
-    // 1. Generate Automation Plan using LLMService
-    console.log('🤖 Asking LLM to plan steps...');
+    // Use LLM to generate Playwright code based on the actual prompt
     const llmService = new LLMService();
-    const plannedSteps = await llmService.generateAutomationPlan(promptContent, domAnalysisResult, environment);
     
-    console.log(`✅ LLM planned ${plannedSteps.length} steps:`);
-    plannedSteps.forEach((s, i) => console.log(`  ${i+1}. ${s.description}`));
+    // Create a comprehensive prompt for LLM to generate Playwright code
+    // Include timestamp to ensure uniqueness and prevent caching
+    const timestamp = Date.now();
+    const uniqueId = Math.random().toString(36).substring(7);
+    
+    // Build DOM elements section for LLM prompt
+    let domElementsSection = '';
+    if (domAnalysisResult && domAnalysisResult.elements && domAnalysisResult.elements.length > 0) {
+      const buttons = domAnalysisResult.elements.filter(el => el.type === 'button').slice(0, 10);
+      const inputs = domAnalysisResult.elements.filter(el => el.type === 'input').slice(0, 10);
+      const links = domAnalysisResult.elements.filter(el => el.type === 'link').slice(0, 10);
+      const selects = domAnalysisResult.elements.filter(el => el.type === 'select').slice(0, 5);
+      
+      domElementsSection = `\n## DOM Analysis Results - Discovered Elements:
+Page Title: ${domAnalysisResult.pageTitle || 'Unknown'}
+Total Elements Found: ${domAnalysisResult.elements.length}
 
-    // 2. Execute Real-time Interaction
+### Available Buttons (${buttons.length} shown):
+${buttons.map((btn, idx) => `${idx + 1}. Text: "${btn.text || 'No text'}" | Best Selector: ${btn.selectors[0] || 'No selector'}`).join('\n')}
+
+### Available Input Fields (${inputs.length} shown):
+${inputs.map((inp, idx) => `${idx + 1}. Type: ${inp.attributes.type || 'text'} | Placeholder: "${inp.attributes.placeholder || 'No placeholder'}" | Name: "${inp.attributes.name || 'No name'}" | Best Selector: ${inp.selectors[0] || 'No selector'}`).join('\n')}
+
+### Available Links (${links.length} shown):
+${links.map((link, idx) => `${idx + 1}. Text: "${link.text || 'No text'}" | Href: "${link.attributes.href || 'No href'}" | Best Selector: ${link.selectors[0] || 'No selector'}`).join('\n')}
+
+${selects.length > 0 ? `### Available Select Dropdowns (${selects.length} shown):
+${selects.map((sel, idx) => `${idx + 1}. Name: "${sel.attributes.name || 'No name'}" | Best Selector: ${sel.selectors[0] || 'No selector'}`).join('\n')}` : ''}
+
+**IMPORTANT: Use these discovered elements to generate accurate, working selectors!**
+- Prefer getByRole, getByPlaceholder, getByLabel, getByText based on the element information above
+- Use the exact text content shown above for button/link selectors
+- Use the exact placeholder/name attributes shown above for input selectors
+`;
+    }
+    
+    const llmPrompt = `You are an expert Playwright test automation engineer. Generate a complete, unique Playwright test spec file based on the following user prompt.
+
+## IMPORTANT: Generate FRESH code for this specific prompt
+- Request ID: ${uniqueId}
+- Timestamp: ${timestamp}
+- Do NOT reuse previous templates or cached code
+- Generate code specifically tailored to the user's prompt below
+
+## User Prompt:
+${promptContent}
+
+## Test Details:
+- Test Name: ${testName}
+- Test Type: ${testType}
+- Base URL: ${baseUrl}
+${domElementsSection}
+## Requirements:
+1. Generate a complete, working Playwright test spec file SPECIFIC to this prompt
+2. Use the EXACT actions described in the user prompt - do not use generic templates
+3. **USE THE DISCOVERED ELEMENTS FROM DOM ANALYSIS ABOVE** - match element text, placeholders, and attributes exactly
+4. Include proper waits and error handling
+5. Use realistic selectors based on the DOM analysis (prefer getByRole, getByPlaceholder, getByText over CSS selectors)
+6. Add console.log statements for each step to track progress
+7. Include proper assertions based on the expected outcome
+8. Use environment variables for credentials (UI_USERNAME, UI_PASSWORD, etc.)
+9. Generate code that matches the specific prompt content, not generic templates
+
+## Base URL Setup:
+\`\`\`typescript
+const TARGET_URL = process.env.BASE_URL || '${baseUrl}';
+await page.goto(TARGET_URL);
+await page.waitForLoadState('networkidle');
+\`\`\`
+
+## CRITICAL: 
+- Generate UNIQUE code for this specific prompt: "${promptContent.substring(0, 200)}"
+- Do NOT use cached or template-based code
+- Use the EXACT element information from the DOM Analysis section above
+- Analyze the prompt carefully and generate code that implements the exact steps described
+
+Generate the complete Playwright test code that implements the user's prompt. The code should be production-ready and executable.`;
+
+    console.log('🤖 Calling LLM to generate Playwright code...');
+    
+    let generatedCode = '';
+    try {
+      // Generate code using LLM
+      generatedCode = await llmService.generateCode(llmPrompt, environment, {
+        testName: testName,
+        testType: testType,
+        baseUrl: baseUrl
+      });
+      
+      console.log('✅ LLM generated code successfully (length:', generatedCode.length, 'chars)');
+      
+      // Clean up the generated code (remove markdown fences, etc.)
+      generatedCode = cleanGeneratedCode(generatedCode);
+      
+      // Extract test code from the generated response if needed
+      // The LLM might return code wrapped in markdown or explanations
+      const codeBlockMatch = generatedCode.match(/```(?:typescript|ts|javascript|js)?\n([\s\S]*?)```/);
+      if (codeBlockMatch) {
+        generatedCode = codeBlockMatch[1];
+      }
+      
+      // Ensure it starts with imports
+      if (!generatedCode.includes('import { test')) {
+        generatedCode = `import { test, expect } from '@playwright/test';\n\n${generatedCode}`;
+      }
+      
+    } catch (llmError) {
+      console.error('❌ LLM generation failed:', llmError);
+      console.log('⚠️ Falling back to template-based generation...');
+      
+      // Fallback to template generation if LLM fails
+      generatedCode = generateFallbackTestCode(promptContent, testName, baseUrl);
+    }
+    
+    // Use LLM-generated code directly - no template matching
+    let specCode = generatedCode;
+    
+    // Ensure the spec code has the proper structure
+    if (!specCode.includes('test.describe') && !specCode.includes('test(')) {
+      // Wrap in test structure if needed
+      specCode = `import { test, expect } from '@playwright/test';
+
+test.describe('${testName}', () => {
+  test('${testName}', async ({ page }) => {
+    console.log('🚀 Starting test execution...');
+    
+    const TARGET_URL = process.env.BASE_URL || '${baseUrl}';
+    await page.goto(TARGET_URL);
+    await page.waitForLoadState('networkidle');
+    
+    ${generatedCode}
+    
+    console.log('✅ Test execution completed!');
+  });
+});`;
+    }
+    
+    // Ensure spec code ends properly
+    if (!specCode.includes('});')) {
+      specCode += '\n  });\n});';
+    }
+    
+    console.log('✅ Final spec code generated (length:', specCode.length, 'chars)');
+    console.log('📝 Code preview:', specCode.substring(0, 500) + '...');
+    
+    // Use LLM-generated code directly - no hardcoded templates
+    // The specCode variable already contains the LLM-generated code
+    // Just ensure it's properly formatted
+
+    const simpleSpecCode = specCode;
+    
+    // Save the spec file to the proper location
+    // Use prompt title only (no timestamp), with incremental postfix if file exists
+    const specDir = path.join(__dirname, '../../tests/projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts');
+    
+    // Ensure the directory exists
+    if (!fs.existsSync(specDir)) {
+      fs.mkdirSync(specDir, { recursive: true });
+      console.log('📁 Created spec directory:', specDir);
+    }
+    
+    // Generate unique file path with incremental postfix if needed
+    const specFilePath = generateUniqueSpecFilePath(testName, specDir);
+    console.log('📝 Generated spec file path:', specFilePath);
+    
+    // Save the spec file
+    fs.writeFileSync(specFilePath, simpleSpecCode);
+    console.log('💾 Spec file saved:', specFilePath);
+    
+    // IMMEDIATE browser interaction - no LLM processing, no DOM analysis
     console.log('🚀 Starting IMMEDIATE real-time LLM interaction...');
     console.log('👀 Watch the browser window for real-time LLM actions!');
-    
-    let executedSteps = [];
     try {
-      // Pass pre-computed plan to avoid re-planning
-      const interactionResult = await performRealtimeLLMInteraction(null, baseUrl, promptContent, parsedSteps, environment, plannedSteps);
-      
-      if (interactionResult.success) {
-          executedSteps = interactionResult.stepsExecuted;
-          console.log('✅ IMMEDIATE real-time LLM interaction completed successfully!');
-      } else {
-          throw new Error(interactionResult.error || 'Interaction failed');
-      }
+      await performRealtimeLLMInteraction(simpleSpecCode, baseUrl, promptContent, parsedSteps, environment);
+      console.log('✅ IMMEDIATE real-time LLM interaction completed successfully!');
     } catch (error) {
       console.error('❌ IMMEDIATE real-time LLM interaction failed:', error);
       console.error('❌ Error details:', error.message);
-      throw error;
     }
-    
-    // 3. Generate Spec File from Executed Steps
-    console.log('📝 Generating spec file from executed steps...');
-    
-    // Filter only passed or healed steps
-    const validSteps = executedSteps.filter(s => s.status === 'passed' || s.status === 'healed');
-    
-    if (validSteps.length === 0) {
-        throw new Error('No steps were successfully executed. Cannot save test.');
-    }
-
-    // Build Spec File Content
-    // Use relative path to fixture: 6 levels up from saved location
-    // Location: tests/projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts/
-    // Fixture: tests/fixtures/self-healing.ts
-    // Path: ../../../../../../fixtures/self-healing
-    
-    let specCode = `import { test, expect } from '../../../../../../fixtures/self-healing';\n`;
-    specCode += `import { allure } from 'allure-playwright';\n\n`;
-    specCode += `test.describe('${testName}', () => {\n`;
-    specCode += `  test('${testName}', async ({ page }) => {\n`;
-    specCode += `    const TARGET_URL = process.env.BASE_URL || '${baseUrl}';\n`;
-    specCode += `    await page.goto(TARGET_URL);\n`;
-    specCode += `    await page.waitForLoadState('networkidle');\n\n`;
-    
-    for (const step of validSteps) {
-        specCode += `    // ${step.description}\n`;
-        // Ensure code has await if missing (though LLM usually adds it)
-        let codeLine = step.code.trim();
-        // Remove trailing semicolon if present to avoid double
-        if (codeLine.endsWith(';')) codeLine = codeLine.slice(0, -1);
-        
-        if (!codeLine.startsWith('await') && !codeLine.startsWith('expect') && !codeLine.startsWith('//') && !codeLine.startsWith('const') && !codeLine.startsWith('let')) {
-            codeLine = `await ${codeLine}`;
-        }
-        specCode += `    ${codeLine};\n`; 
-    }
-    
-    specCode += `  });\n});`;
-    
-    // Fix ambiguous selectors using CodeGenerator helper
-    try {
-        const codeGenerator = new CodeGenerator();
-        if (typeof codeGenerator.fixAmbiguousSelectors === 'function') {
-            specCode = codeGenerator.fixAmbiguousSelectors(specCode);
-        }
-    } catch (e) {
-        console.warn('⚠️ Could not fix ambiguous selectors:', e.message);
-    }
-
-    console.log('✅ Final spec code generated (length:', specCode.length, 'chars)');
-    
-    // 4. Save Spec File
-    const specDir = path.join(__dirname, '../../tests/projects/enhanced-ai/models/llm-generated/LLM-Generated/prompts');
-    
-    if (!fs.existsSync(specDir)) {
-      fs.mkdirSync(specDir, { recursive: true });
-    }
-    
-    const specFilePath = generateUniqueSpecFilePath(testName, specDir);
-    fs.writeFileSync(specFilePath, specCode);
-    console.log('💾 Spec file saved:', specFilePath);
     
     return {
       success: true,
-      testCode: specCode,
+      testCode: simpleSpecCode,
       specFilePath: specFilePath,
-      message: 'IMMEDIATE real-time browser interaction completed and test saved',
-      realtimeMode: true,
-      stepsExecuted: executedSteps
+      message: 'IMMEDIATE real-time browser interaction completed',
+      realtimeMode: true
     };
     
   } catch (error) {
@@ -910,23 +1205,41 @@ router.post('/generate-llm-playwright-realtime', async (req, res) => {
       stepCount: parsedSteps.length
     });
 
+    // First, launch a browser instance for real-time interaction
+    console.log('🔍 About to call launchRealtimeBrowser...');
+    const browserInstance = await launchRealtimeBrowser(environment);
+    console.log('🔍 Browser instance result:', JSON.stringify(browserInstance, null, 2));
+    
+    if (!browserInstance.success) {
+      return res.status(500).json({ 
+        error: 'Failed to launch browser for real-time interaction',
+        details: browserInstance.error 
+      });
+    }
+
     // Resolve a safe baseUrl for both runtime navigation and the placeholder spec
     const resolvedBaseUrl = (baseUrl && String(baseUrl).trim())
       || (environment?.variables?.BASE_URL && String(environment.variables.BASE_URL).trim())
       || 'http://localhost:5050';
 
-    console.log('🚀 Invoking processLLMWithRealtimeBrowser for complete workflow (Plan -> Execute -> Heal -> Save)...');
-    
-    const result = await processLLMWithRealtimeBrowser({
+    // Now start LLM processing while browser is running
+    const llmResult = await processLLMWithRealtimeBrowser({
       promptContent,
       testName,
       testType,
       environment,
       parsedSteps,
-      baseUrl: resolvedBaseUrl
+      baseUrl: resolvedBaseUrl,
+      browserInstance
     });
 
-    res.json(result);
+    res.json({
+      success: true,
+      testCode: llmResult.testCode,
+      browserInstance: browserInstance,
+      realtimeMode: true,
+      message: 'Real-time browser interaction started successfully'
+    });
 
   } catch (error) {
     console.error('Error in real-time browser mode:', error);
@@ -1051,8 +1364,7 @@ Return ONLY the complete TypeScript code without explanations or markdown.`;
 
 REQUIREMENTS:
 - Use TypeScript with Playwright
-- Import the self-healing fixture: import { test, expect } from '../../../../../../fixtures/self-healing'
-- Do NOT import from '@playwright/test' directly for 'test' object, only for types if needed.
+- Include proper imports: import { test, expect } from '@playwright/test'
 - Include Allure reporting: import { allure } from 'allure-playwright'
 - Use environment variables for configuration (BASE_URL, BROWSER_TYPE, HEADLESS_MODE)
 - Add proper test structure with describe and test blocks

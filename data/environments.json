@@ -294,8 +294,8 @@
     "llmConfiguration": {
       "enabled": true,
       "provider": "openrouter",
-      "apiKey": "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",
-      "model": "tngtech/deepseek-r1t2-chimera:free",
+      "apiKey": "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",
+      "model": "mistralai/devstral-2512:free",
       "baseUrl": "https://openrouter.ai",
       "llmProvider": ""
     },
@@ -316,7 +316,7 @@
       "grantType": "password"
     },
     "createdAt": "2025-10-08T16:01:26.526Z",
-    "updatedAt": "2025-11-03T16:04:18.560Z",
+    "updatedAt": "2026-01-03T18:43:36.346Z",
     "status": "active"
   },
   {
